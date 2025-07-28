@@ -46,7 +46,7 @@ namespace lxh
 	}
 
 
-	lxhDevice::lxhDevice(lxhWindow* window):window_(window)
+	LxhDevice::LxhDevice(lxhWindow* window):window_(window)
 	{
 		createInstance();
 		setupDebugMessenger();
@@ -56,7 +56,7 @@ namespace lxh
 		createCommandPool();
 	}
 
-	lxhDevice::~lxhDevice()
+	LxhDevice::~LxhDevice()
 	{
 		vkDestroyCommandPool(device_, commandPool, nullptr);
 		vkDestroyDevice(device_, nullptr);
@@ -68,46 +68,163 @@ namespace lxh
 		vkDestroyInstance(instance_, nullptr);
 	}
 
-	uint32_t lxhDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
+	uint32_t LxhDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
 	{
-		return 0;
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memProperties);
+		for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if (typeFilter & (1 << i) &&
+				(memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				return i;
+			}
+		}
+		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	VkFormat lxhDevice::findSupportFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags flag)
+	VkFormat LxhDevice::findSupportFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags flag)
 	{
-		return VkFormat();
+		for (VkFormat format : candidates)
+		{
+			VkFormatProperties props;
+			vkGetPhysicalDeviceFormatProperties(physicalDevice_,  format, &props);
+			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & flag) == flag)
+			{
+				return format;
+			}
+			else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & flag) == flag)
+			{
+				return format;
+			}
+		}
+		throw std::runtime_error("failed to find supported format!");
 	}
 
-	void lxhDevice::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+	void LxhDevice::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create vertex buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(device_, buffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+		if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate vertex buffer memory!");
+		}
+
+		vkBindBufferMemory(device_, buffer, bufferMemory, 0);
 	}
 
-	VkCommandBuffer lxhDevice::beginSingleTimeCommands()
+	VkCommandBuffer LxhDevice::beginSingleTimeCommands()
 	{
-		return VkCommandBuffer();
+		VkCommandBufferAllocateInfo allocateInfo{};
+		allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocateInfo.commandPool = commandPool;
+		allocateInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(device_, &allocateInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+		return commandBuffer;
 	}
 
-	void lxhDevice::endSingleTimeCommands(VkCommandBuffer commandBuffer)
+	void LxhDevice::endSingleTimeCommands(VkCommandBuffer commandBuffer)
 	{
+		vkEndCommandBuffer(commandBuffer);
+		
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+		
+		vkQueueSubmit(graphicsQueue_, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue_);
+		vkFreeCommandBuffers(device_, commandPool, 1, &commandBuffer);
 	}
 
-	void lxhDevice::copyBuffer(VkBuffer scrBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+	void LxhDevice::copyBuffer(VkBuffer scrBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 	{
+		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+		VkBufferCopy copyRegion{};
+		copyRegion.srcOffset = 0;
+		copyRegion.dstOffset = 0;
+		copyRegion.size = size;
+
+		vkCmdCopyBuffer(commandBuffer, scrBuffer, dstBuffer, 1, &copyRegion);
+		endSingleTimeCommands(commandBuffer);
 	}
 
-	void lxhDevice::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layCount)
+	void LxhDevice::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layCount)
 	{
+		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+		VkBufferImageCopy copyRegion{};
+		copyRegion.bufferOffset = 0;
+		copyRegion.bufferRowLength = 0;
+		copyRegion.bufferImageHeight = 0;
+
+		copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+		copyRegion.imageSubresource.layerCount = layCount;
+		copyRegion.imageSubresource.mipLevel = 0;
+
+		copyRegion.imageOffset = {0, 0, 0};
+		copyRegion.imageExtent = {width, height, 1};
+	
+		vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+		endSingleTimeCommands(commandBuffer);
+		
 	}
 
-	void lxhDevice::CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+	void LxhDevice::CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
 	{
+		if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create image!");
+		}
+
+		VkMemoryRequirements memRequirments;
+		vkGetImageMemoryRequirements(device_, image, &memRequirments);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirments.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirments.memoryTypeBits, properties);
+
+		if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate image Memory!");
+		}
+		vkBindImageMemory(device_, image, imageMemory, 0);
+
 	}
 
-	void lxhDevice::createInstance()
+	void LxhDevice::createInstance()
 	{
 		if (enableValidationLayers && !checkValidationLayerSupport())
 		{
-			throw std::runtime_error("validation layer requested, but not avaiable!");
+			throw std::runtime_error("validation layer requested, but not available!");
 		}
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -146,7 +263,7 @@ namespace lxh
 	}
 
 
-	void lxhDevice::setupDebugMessenger()
+	void LxhDevice::setupDebugMessenger()
 	{
 		if (!enableValidationLayers) return;
 		VkDebugUtilsMessengerCreateInfoEXT createInfo;
@@ -156,12 +273,12 @@ namespace lxh
 		}
 	}
 
-	void lxhDevice::createSurface()
+	void LxhDevice::createSurface()
 	{
 		window_->CreateWindowSurface(instance_, &surface_);
 	}
 
-	void lxhDevice::pickPhysicalDevice()
+	void LxhDevice::pickPhysicalDevice()
 	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr);
@@ -191,7 +308,7 @@ namespace lxh
 	1. vkDeviceQueue
 	2. vkDeviceFeatures
 	*/
-	void lxhDevice::createLogicalDevice()
+	void LxhDevice::createLogicalDevice()
 	{
 		QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -232,13 +349,13 @@ namespace lxh
 		}
 		if (vkCreateDevice(physicalDevice_, &createInfo, nullptr, &device_) != VK_SUCCESS)
 		{
-			throw std::runtime_error("failed to create logice device");
+			throw std::runtime_error("failed to create logic device");
 		}
 		vkGetDeviceQueue(device_, indices.graphicsFamily, 0, &graphicsQueue_);
 		vkGetDeviceQueue(device_, indices.presentFamily, 0, &presentQueue_);
 	}
 
-	void lxhDevice::createCommandPool()
+	void LxhDevice::createCommandPool()
 	{
 		QueueFamilyIndices queueFamilies = findQueueFamilies(physicalDevice_);
 
@@ -257,7 +374,7 @@ namespace lxh
 		we want find a device which physical device is suitable
 		1. 
 	*/
-	bool lxhDevice::isDeviceSuitable(VkPhysicalDevice device)
+	bool LxhDevice::isDeviceSuitable(VkPhysicalDevice device)
 	{
 		QueueFamilyIndices indices = findQueueFamilies(device);
 		bool extensionSupported = checkDeviceExtensionSupport(device);
@@ -279,7 +396,7 @@ namespace lxh
 		return false;
 	}
 
-	std::vector<const char*> lxhDevice::getRequiredExtensions()
+	std::vector<const char*> LxhDevice::getRequiredExtensions()
 	{
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
@@ -294,7 +411,7 @@ namespace lxh
 		return extensions;
 	}
 
-	bool lxhDevice::checkValidationLayerSupport()
+	bool LxhDevice::checkValidationLayerSupport()
 	{
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -322,7 +439,7 @@ namespace lxh
 		return true;
 	}
 
-	QueueFamilyIndices lxhDevice::findQueueFamilies(VkPhysicalDevice device)
+	QueueFamilyIndices LxhDevice::findQueueFamilies(VkPhysicalDevice device)
 	{
 		QueueFamilyIndices indices;
 		
@@ -356,7 +473,7 @@ namespace lxh
 		return QueueFamilyIndices();
 	}
 
-	void lxhDevice::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+	void LxhDevice::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
@@ -368,7 +485,7 @@ namespace lxh
 		createInfo.pUserData = nullptr;  // Optional
 	}
 
-	void lxhDevice::hasGLFWRequiredInstanceExtensions()
+	void LxhDevice::hasGLFWRequiredInstanceExtensions()
 	{
 		uint32_t extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
@@ -396,7 +513,7 @@ namespace lxh
 
 	}
 
-	bool lxhDevice::checkDeviceExtensionSupport(VkPhysicalDevice device)
+	bool LxhDevice::checkDeviceExtensionSupport(VkPhysicalDevice device)
 	{
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
@@ -412,7 +529,7 @@ namespace lxh
 		return requireExtensions.empty();
 	}
 
-	SwapChainSupportDeatails lxhDevice::querySwapChainSupport(VkPhysicalDevice device)
+	SwapChainSupportDeatails LxhDevice::querySwapChainSupport(VkPhysicalDevice device)
 	{
 		SwapChainSupportDeatails details;
 

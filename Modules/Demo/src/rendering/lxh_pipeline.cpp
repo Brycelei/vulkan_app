@@ -1,4 +1,5 @@
 #include "lxh_pipeline.h"
+#include "lxh_model.h"
 
 #include<cassert>
 #include<fstream>
@@ -7,26 +8,26 @@
 
 namespace lxh
 {
-	lxhPipeline::lxhPipeline(lxh::lxhDevice & device,
+	LxhPipeline::LxhPipeline(lxh::LxhDevice & device,
 		const std::string& vertFilepath, 
 		const std::string& fragFilepath, 
 		const PipelineConfigInfo& configInfo):lxhDevice{device}
 	{
 		createGraphicPipeline(vertFilepath, fragFilepath, configInfo);
 	}
-	lxhPipeline::~lxhPipeline()
+	LxhPipeline::~LxhPipeline()
 	{
 		vkDestroyShaderModule(lxhDevice.getDevice(), vertShaderModule, nullptr);
 		vkDestroyShaderModule(lxhDevice.getDevice(), fragShaderModule, nullptr);
 		vkDestroyPipeline(lxhDevice.getDevice(), graphicsPileline, nullptr);
 	}
 
-	void lxhPipeline::bind(VkCommandBuffer commandBuffer)
+	void LxhPipeline::bind(VkCommandBuffer commandBuffer)
 	{
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPileline);
 	}
 
-	void lxhPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo)
+	void LxhPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo)
 	{
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -100,17 +101,24 @@ namespace lxh
 			static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
 
-		configInfo.bindingDescriptions = 
-
-
-
+		configInfo.bindingDescriptions = LxhModel::Vertex::getBindingDescriptions();
+		configInfo.attributeDescriptions = LxhModel::Vertex::getAttributeDescriptions();
 	}
 
-	void lxhPipeline::enableAlphaBlending(PipelineConfigInfo& configInfo)
+	void LxhPipeline::enableAlphaBlending(PipelineConfigInfo& configInfo)
 	{
+		configInfo.colorBlendAttachment.blendEnable = VK_TRUE;
+		configInfo.colorBlendAttachment.colorWriteMask = 
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		configInfo.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		configInfo.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		configInfo.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+		configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 	}
 
-	std::vector<char> lxhPipeline::readFile(const std::string& filepath)
+	std::vector<char> LxhPipeline::readFile(const std::string& filepath)
 	{
 		std::ifstream file(filepath, std::ios::ate | std::ios::binary);
 		if (!file.is_open())
@@ -128,12 +136,89 @@ namespace lxh
 		return std::vector<char>();
 	}
 
-	void lxhPipeline::createGraphicPipeline(const std::string vertFilepath, const std::string fragFilepath, const PipelineConfigInfo& configInfo)
+	void LxhPipeline::createGraphicPipeline(const std::string vertFilepath, const std::string fragFilepath, const PipelineConfigInfo& configInfo)
 	{
+		assert(configInfo.pipelineLayout != VK_NULL_HANDLE && "Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
+		assert(configInfo.renderPass != VK_NULL_HANDLE && "Cannot create graphics pipeline: no renderPass provided in configInfo");
+		
+		auto vertCode = readFile(vertFilepath);
+		auto fragCode = readFile(fragFilepath);
+
+		createShaderModule(vertCode, &vertShaderModule);
+		createShaderModule(fragCode, &fragShaderModule);
+
+		VkPipelineShaderStageCreateInfo ShaderStageInfo[2];
+		ShaderStageInfo[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		ShaderStageInfo[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+		ShaderStageInfo[0].module = vertShaderModule;
+		ShaderStageInfo[0].pName = "main";
+		ShaderStageInfo[0].pSpecializationInfo = nullptr;
+		ShaderStageInfo[0].flags = 0;
+		ShaderStageInfo[0].pNext = nullptr;
+
+		ShaderStageInfo[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		ShaderStageInfo[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		ShaderStageInfo[1].module = fragShaderModule;
+		ShaderStageInfo[1].pName = "main";
+		ShaderStageInfo[1].pSpecializationInfo = nullptr;
+		ShaderStageInfo[1].flags = 0;
+		ShaderStageInfo[1].pNext = nullptr;
+
+
+		auto& bindingDescriptiions = configInfo.bindingDescriptions;
+		auto& attributeDescriptions = configInfo.attributeDescriptions;
+
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptiions.size());
+		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptiions.data();
+
+		VkGraphicsPipelineCreateInfo pipelineInfo{};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipelineInfo.stageCount = 2;
+		pipelineInfo.pStages = ShaderStageInfo;
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
+		pipelineInfo.pViewportState = &configInfo.viewportInfo;
+		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
+		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
+		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;	
+		pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
+		pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
+
+		pipelineInfo.layout = configInfo.pipelineLayout;
+		pipelineInfo.renderPass = configInfo.renderPass;
+		pipelineInfo.subpass = configInfo.subpass;
+
+		pipelineInfo.basePipelineIndex = -1;
+		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+		if (vkCreateGraphicsPipelines(
+			lxhDevice.getDevice(),
+			VK_NULL_HANDLE,
+			1,
+			&pipelineInfo,
+			nullptr,
+			&graphicsPileline) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create graphics pipeline!");
+		}
+
 	}
 
-	void lxhPipeline::createShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule)
+	void LxhPipeline::createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule)
 	{
+		VkShaderModuleCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = code.size();
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+		if (vkCreateShaderModule(lxhDevice.getDevice(), &createInfo, nullptr, shaderModule) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create shader module!");
+		}
 	}
 
 }

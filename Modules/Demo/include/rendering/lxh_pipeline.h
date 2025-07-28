@@ -40,20 +40,21 @@ namespace lxh
 		std::vector<VkDynamicState> dynamicStateEnables;
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo;
 		VkPipelineLayout pipelineLayout = nullptr;
+		VkRenderPass renderPass = nullptr;
 		uint32_t subpass = 0;
 
 	};
-	class lxhPipeline {
+	class LxhPipeline {
 	public:
-		lxhPipeline(
-			lxhDevice& device,
+		LxhPipeline(
+			LxhDevice& device,
 			const std::string& vertFilepath,
 			const std::string& fragFilepath,
 			const PipelineConfigInfo& configInfo);
-		~lxhPipeline();
+		~LxhPipeline();
 
-		lxhPipeline(const lxhPipeline&) = delete;
-		lxhPipeline& operator=(const lxhPipeline&) = delete;
+		LxhPipeline(const LxhPipeline&) = delete;
+		LxhPipeline& operator=(const LxhPipeline&) = delete;
 
 		void bind(VkCommandBuffer commandBuffer);
 
@@ -68,9 +69,9 @@ namespace lxh
 			const std::string fragFilepath,
 			const PipelineConfigInfo& configInfo);
 
-		void createShaderModule(const std::vector<char>& code, VkShaderModule& shaderModule);
+		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 
-		lxhDevice& lxhDevice;
+		LxhDevice& lxhDevice;
 		VkPipeline graphicsPileline;
 		VkShaderModule vertShaderModule;
 		VkShaderModule fragShaderModule;

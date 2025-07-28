@@ -24,7 +24,7 @@ namespace lxh
 		}
 	};
 
-	class lxhDevice
+	class LxhDevice
 	{
 	public:
 #ifdef NDEBUG
@@ -33,10 +33,10 @@ namespace lxh
 		const bool enableValidationLayers = true;
 #endif
 
-		lxhDevice(lxhWindow* window);
-		~lxhDevice();
-		lxhDevice(const lxhDevice&) = delete;
-		lxhDevice& operator=(const lxhDevice&) = delete;
+		LxhDevice(lxhWindow* window);
+		~LxhDevice();
+		LxhDevice(const LxhDevice&) = delete;
+		LxhDevice& operator=(const LxhDevice&) = delete;
 		VkCommandPool getCommandPool() const { return commandPool; }
 		VkDevice getDevice() const { return device_; }
 
