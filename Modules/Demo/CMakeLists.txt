@@ -6,7 +6,8 @@ find_package(Tracy CONFIG REQUIRED)
 
 find_package(glew CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
-
+find_package(tinyobjloader CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 set(VULKAN_SDK_PATH C:\\VulkanSDK\\1.3.280.0)
 
 # 1. Set VULKAN_SDK_PATH in .env.cmake to target specific vulkan version
@@ -72,7 +73,7 @@ target_include_directories(${TARGET} PUBLIC ${Vulkan_INCLUDE_DIRS})
 target_link_directories(${PROJECT_NAME} PUBLIC ${Vulkan_LIBRARIES})
 
 
-target_link_libraries(${TARGET} PRIVATE glfw GLEW::GLEW glm::glm vulkan-1)
+target_link_libraries(${TARGET} PRIVATE glfw GLEW::GLEW glm::glm vulkan-1 assimp::assimp tinyobjloader::tinyobjloader)
 
 
 set_target_properties(${TARGET} PROPERTIES VS_GLOBAL_VcpkgEnabled true)

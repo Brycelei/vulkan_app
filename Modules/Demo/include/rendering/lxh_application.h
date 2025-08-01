@@ -7,16 +7,16 @@
 #include<string>
 
 namespace lxh {
-class lxhWindow
+class LxhWindow
 {
 public:
-	lxhWindow(int w, int h, std::string name);
-	~lxhWindow();
+	LxhWindow(int w, int h, std::string name);
+	~LxhWindow();
 
-	lxhWindow(const lxhWindow&) = delete;
-	lxhWindow& operator=(const lxhWindow&) = delete;
-	lxhWindow(lxhWindow&&) = delete;
-	lxhWindow& operator=(lxhWindow&&) = delete;
+	LxhWindow(const LxhWindow&) = delete;
+	LxhWindow& operator=(const LxhWindow&) = delete;
+	LxhWindow(LxhWindow&&) = delete;
+	LxhWindow& operator=(LxhWindow&&) = delete;
 
 	bool ShouldClose() {
 		return glfwWindowShouldClose(window);

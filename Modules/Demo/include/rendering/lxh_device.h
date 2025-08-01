@@ -33,7 +33,7 @@ namespace lxh
 		const bool enableValidationLayers = true;
 #endif
 
-		LxhDevice(lxhWindow* window);
+		LxhDevice(LxhWindow& window);
 		~LxhDevice();
 		LxhDevice(const LxhDevice&) = delete;
 		LxhDevice& operator=(const LxhDevice&) = delete;
@@ -109,7 +109,7 @@ namespace lxh
 
 		VkInstance instance_;
 		VkDebugUtilsMessengerEXT debugMessenger_;
-		lxhWindow* window_;
+		LxhWindow& window_;
 		VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
 		VkCommandPool commandPool;
 

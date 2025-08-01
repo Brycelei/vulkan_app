@@ -2,17 +2,17 @@
 #include <stdexcept>
 namespace lxh {
 
-	lxhWindow::lxhWindow(int w, int h, std::string name)
+	LxhWindow::LxhWindow(int w, int h, std::string name):width{w}, height{h}, windowName{name}
 	{
 		InitWindow();
 	}
-	lxhWindow::~lxhWindow()
+	LxhWindow::~LxhWindow()
 	{
 		glfwDestroyWindow(window);
 		glfwTerminate();
 	}
 
-	void lxhWindow::InitWindow()
+	void LxhWindow::InitWindow()
 	{
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -28,16 +28,16 @@ namespace lxh {
 		glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
 
 	}
-	void lxhWindow::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
+	void LxhWindow::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
 	{
 		if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create window surface");
 		}
 	}
 
-	void lxhWindow::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
+	void LxhWindow::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 	{
-		auto lveWindow = reinterpret_cast<lxhWindow*>(glfwGetWindowUserPointer(window));
+		auto lveWindow = reinterpret_cast<LxhWindow*>(glfwGetWindowUserPointer(window));
 		lveWindow->framebufferResized = true;
 		lveWindow->width = width;
 		lveWindow->height = height;

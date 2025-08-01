@@ -1,5 +1,5 @@
 
-#include "lxh_application.h"
+#include "app.h"
 
 // std
 #include <cstdlib>
@@ -7,15 +7,15 @@
 #include <stdexcept>
 
 int main() {
-   /* lxh::FirstApp app{};
+	lxh::App app{};
 
-    try {
-        app.run();
-    }
-    catch (const std::exception& e) {
-        std::cerr << e.what() << '\n';
-        return EXIT_FAILURE;
-    }*/
+	try {
+		app.run();
+	}
+	catch (const std::exception& e) {
+		std::cerr << e.what() << '\n';
+		return EXIT_FAILURE;
+	}
 
     return EXIT_SUCCESS;
 }

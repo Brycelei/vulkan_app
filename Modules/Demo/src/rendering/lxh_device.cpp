@@ -46,7 +46,7 @@ namespace lxh
 	}
 
 
-	LxhDevice::LxhDevice(lxhWindow* window):window_(window)
+	LxhDevice::LxhDevice(LxhWindow& window):window_(window)
 	{
 		createInstance();
 		setupDebugMessenger();
@@ -275,7 +275,7 @@ namespace lxh
 
 	void LxhDevice::createSurface()
 	{
-		window_->CreateWindowSurface(instance_, &surface_);
+		window_.CreateWindowSurface(instance_, &surface_);
 	}
 
 	void LxhDevice::pickPhysicalDevice()
@@ -284,7 +284,7 @@ namespace lxh
 		vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr);
 		if (deviceCount == 0)
 		{
-			throw std::runtime_error("failed to find GPU with vulkan");
+			throw std::runtime_error("failed to find GPUs with Vulkan support");
 		}
 		std::cout << "Device count:" << deviceCount << std::endl;
 		std::vector<VkPhysicalDevice> devices(deviceCount);
@@ -302,6 +302,8 @@ namespace lxh
 		{
 			throw std::runtime_error("failed to find a suitable GPU!");
 		}
+		vkGetPhysicalDeviceProperties(physicalDevice_, &properties);
+		std::cout << "physical device: " << properties.deviceName << std::endl;
 
 	}
 	/*
@@ -392,8 +394,6 @@ namespace lxh
 		return indices.isComplete() && extensionSupported && swapChainAdequate &&
 			supportFeatures.samplerAnisotropy;
 
-
-		return false;
 	}
 
 	std::vector<const char*> LxhDevice::getRequiredExtensions()
@@ -447,6 +447,8 @@ namespace lxh
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
 		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
 		int i = 0;
 		for (const auto& queueFamily : queueFamilies)
 		{
@@ -467,10 +469,10 @@ namespace lxh
 				break;
 			}
 			i++;
-			return indices;
+			
 		}
 
-		return QueueFamilyIndices();
+		return indices;
 	}
 
 	void LxhDevice::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -516,9 +518,9 @@ namespace lxh
 	bool LxhDevice::checkDeviceExtensionSupport(VkPhysicalDevice device)
 	{
 		uint32_t extensionCount;
-		vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-		vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, availableExtensions.data());
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
 		std::set<std::string> requireExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
@@ -533,21 +535,21 @@ namespace lxh
 	{
 		SwapChainSupportDeatails details;
 
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice_, surface_, &details.capabilities);
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface_, &details.capabilities);
 
 		uint32_t formatCount;
-		vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, surface_, &formatCount, nullptr);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &formatCount, nullptr);
 		if (formatCount != 0)
 		{
 			details.formats.resize(formatCount);
-			vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice_, surface_, &formatCount, details.formats.data());
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &formatCount, details.formats.data());
 		}
 		uint32_t presentModeCount;
-		vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice_, surface_, &presentModeCount, nullptr);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &presentModeCount, nullptr);
 		if (presentModeCount != 0)
 		{
 			details.presentModes.resize(presentModeCount);
-			vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice_, surface_, &presentModeCount, details.presentModes.data());
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &presentModeCount, details.presentModes.data());
 		}
 
 		return details;

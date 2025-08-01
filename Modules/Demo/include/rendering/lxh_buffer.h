@@ -35,7 +35,13 @@ namespace lxh
 	VkResult invalidateIndex(uint32_t index);
 
 	VkBuffer getBuffer() const { return buffer_; }
-
+	void* getMappedMemory() const { return mapped; }
+	uint32_t getInstanceCount() const { return instanceCount; }
+	VkDeviceSize getInstanceSize() const { return instanceSize; }
+	VkDeviceSize getAlignmentSize() const { return instanceSize; }
+	VkBufferUsageFlags getUsageFlags() const { return usageFlags; }
+	VkMemoryPropertyFlags getMemoryPropertyFlags() const { return memoryPropertyFlags; }
+	VkDeviceSize getBufferSize() const { return bufferSize; }
 
 	private:
 		static VkDeviceSize getAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);

@@ -39,19 +39,102 @@ namespace lxh
 		return device.findSupportFormat(requireDepthFomats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	}
 
+
+	/*
+	Outline of a frame
+	1. 等待上一帧绘制完成（需要阻塞cpu)
+	2. 从swapChain获取图像
+	3. 开始录制到命令缓冲区，BeginRenderPass->bindPipeline->SetViewport->draw，绘制场景到取出的图像上
+	4. 录制结束的命令缓冲区·提交到queue
+	5. 展示交换链图像
+	
+
+	- 进行了对于Fence的阻塞等待，用了currentFrame作为imageIndex来索引Fence。
+	- 使用vkAcquireNextImageKHR来获取下一帧可以使用的图片，并且绑定一个Semaphore，用了currentFrame作为index来索引Semaphore。
+	- 对提交信息等进行设置。
+	- currentFrame ++。
+
+	*/
 	VkResult LxhSwapChain::acquireNextImage(uint32_t* imageIndex)
 	{
+		vkWaitForFences(device.getDevice(), 1, &inFlightFences[currentFrame],
+		VK_TRUE,
+		std::numeric_limits<uint64_t>::max());
 
+		VkResult result = vkAcquireNextImageKHR(device.getDevice(),swapChain, std::numeric_limits<uint64_t>::max(),
+		imageAvailableSemaphores[currentFrame],
+		VK_NULL_HANDLE,
+		imageIndex);
+
+		return result;
 	}
 
 	VkResult LxhSwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex)
 	{
+		if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE)
+		{
+			vkWaitForFences(device.getDevice(), 1, &imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
+		}
+		imagesInFlight[*imageIndex] = inFlightFences[currentFrame];
 
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		
+		VkSemaphore waitSemaphores[] = {
+			imageAvailableSemaphores[currentFrame]
+		};
+		
+		VkPipelineStageFlags waiteStages[] = {
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+		};
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waiteStages;
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = buffers;
+
+		VkSemaphore signalSemaphores[] = {
+			renderFinishedSemaphores[currentFrame]
+		};
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+
+		vkResetFences(device.getDevice(), 1, &inFlightFences[currentFrame]);
+		if (vkQueueSubmit(device.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to submit draw command buffer!");
+		}
+
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+
+		VkSwapchainKHR swapChains[] = {
+			swapChain
+		};
+
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapChains;
+
+		presentInfo.pImageIndices = imageIndex;
+		auto result = vkQueuePresentKHR(device.getPresentQueue(), &presentInfo);
+
+		currentFrame = (currentFrame + 1) % MAX_FRAME_IN_FLIGHT;
+
+		return result;
 	}
 
 	void LxhSwapChain::init()
 	{
-
+		creatSwapChain();
+		createImageViews();
+		createRenderPass();
+		createDepthResource();
+		createFramebuffers();
+		createSyncObjects();
 	}
 
 	void LxhSwapChain::creatSwapChain()
@@ -165,9 +248,10 @@ namespace lxh
 			imageInfo.imageType = VK_IMAGE_TYPE_2D;
 			imageInfo.extent.width = swapChainExtent.width;
 			imageInfo.extent.height = swapChainExtent.height;
+			imageInfo.extent.depth = 1;
 			imageInfo.mipLevels = 1;
 			imageInfo.arrayLayers = 1;
-			imageInfo.flags = depthFormat;
+			imageInfo.format = depthFormat;
 			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 			imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -181,6 +265,7 @@ namespace lxh
 			imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			imageViewInfo.image = depthImages[i];
 			imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			imageViewInfo.format = depthFormat;
 			imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 			imageViewInfo.subresourceRange.baseMipLevel = 0;
 			imageViewInfo.subresourceRange.levelCount = 1;
@@ -287,7 +372,7 @@ namespace lxh
 		imageAvailableSemaphores.resize(MAX_FRAME_IN_FLIGHT);
 		renderFinishedSemaphores.resize(MAX_FRAME_IN_FLIGHT);
 		inFlightFences.resize(MAX_FRAME_IN_FLIGHT);
-		imagesInFlight.resize(MAX_FRAME_IN_FLIGHT);
+		imagesInFlight.resize(getImageCount(), VK_NULL_HANDLE);
 
 		VkSemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -384,7 +469,7 @@ namespace lxh
 
 		vkDestroyRenderPass(device.getDevice(), renderPass, nullptr);
 
-		for (size_t i = 0; i < MAX_FORM_KEYWORD_LENGTH; i++)
+		for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(device.getDevice(), renderFinishedSemaphores[i], nullptr);
 			vkDestroySemaphore(device.getDevice(), imageAvailableSemaphores[i], nullptr);
