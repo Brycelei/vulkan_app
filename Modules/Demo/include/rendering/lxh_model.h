@@ -2,7 +2,7 @@
 
 #include "lxh_buffer.h"
 #include "lxh_device.h"
-
+#include <model_loader.h>
 // libs
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -35,6 +35,10 @@ namespace lxh {
 			std::vector<uint32_t> indices{};
 
 			void loadModel(const std::string& filepath);
+
+			void loadModelAssimp(const std::string& filepath);
+			static AssimpParser __ASSIMP;
+
 		};
 
 		LxhModel(LxhDevice& device, const LxhModel::Builder& builder);

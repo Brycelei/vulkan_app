@@ -127,6 +127,21 @@ namespace lxh
 
 	}
 
+	void LxhModel::Builder::loadModelAssimp(const std::string& filepath)
+	{
+
+			Model* result = new Model(p_filepath);
+
+		if (__ASSIMP.LoadModel(p_filepath, result->m_meshes, result->m_materialNames, p_parserFlags))
+		{
+			result->ComputeBoundingSphere();
+			return result;
+		}
+
+		delete result;
+
+		return nullptr;
+	}
 	LxhModel::LxhModel(LxhDevice& device, const LxhModel::Builder& builder):
 		lxhDevice(device), vertexCount(static_cast<uint32_t>(builder.vertices.size())),
 		indexCount(static_cast<uint32_t>(builder.indices.size()))

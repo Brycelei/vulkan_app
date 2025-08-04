@@ -124,15 +124,15 @@ namespace lxh
 
 	void App::loadGameObjects()
 	{
-		std::shared_ptr<LxhModel> lveModel =
+		/*std::shared_ptr<LxhModel> lveModel =
 			LxhModel::createModelFromFile(lxhDevice, "assets/models/fx11/FX11_A2.obj");
 		auto flatVase = LxhGameObject::createGameObject();
 		flatVase.model = lveModel;
 		flatVase.transform.translation = { -.5f, .5f, 0.f };
 		flatVase.transform.scale = { 0.02f, 0.02f, 0.02f };
-		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
+		gameObjects.emplace(flatVase.getId(), std::move(flatVase));*/
 
-		lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
+		std::shared_ptr<LxhModel> lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
 		auto smoothVase = LxhGameObject::createGameObject();
 		smoothVase.model = lveModel;
 		smoothVase.transform.translation = { .5f, .5f, 0.f };
