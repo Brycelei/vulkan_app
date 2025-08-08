@@ -3,6 +3,7 @@
 // std
 #include <cassert>
 #include <stdexcept>
+#include "lxh_swap_chain.h"
 
 
 namespace lxh
@@ -30,7 +31,7 @@ namespace lxh
 			:lxhDevice{ lxhDevice }, bindings{ bindings }
 		{
 			std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
-			for (auto kv : bindings) {
+			for (auto const kv : bindings) {
 				setLayoutBindings.push_back(kv.second);
 			}
 
@@ -92,6 +93,23 @@ namespace lxh
 		return true;
 	}
 
+	bool LxhDescriptorPool::allocateDescriptors(std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, std::vector<VkDescriptorSet>& descriptors) const
+	{
+		assert(descriptorSetLayouts.size() == descriptors.size() && "Descriptor set layouts and descriptors size mismatch");
+
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = descriptorPool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+		allocInfo.pSetLayouts = descriptorSetLayouts.data();
+
+		if (vkAllocateDescriptorSets(lxhDevice.getDevice(), &allocInfo, descriptors.data()) != VK_SUCCESS)
+		{
+			return false;
+		}
+		return true;
+	}
+
 	void LxhDescriptorPool::freeDescriptors(std::vector<VkDescriptorSet>& descriptors) const
 	{
 		vkFreeDescriptorSets(lxhDevice.getDevice(), descriptorPool, static_cast<uint32_t>(descriptors.size()), descriptors.data());
@@ -103,7 +121,10 @@ namespace lxh
 	}
 
 	// ***********************descriptor pool builder*********************************
-
+	/*
+		this function is used to build a descriptor pool
+		the coutn equals swapchain max frame in flight * count
+	*/
 	LxhDescriptorPool::Builder& LxhDescriptorPool::Builder::addPoolSize(
 	VkDescriptorType descriptorType, uint32_t count)
 	{
@@ -180,6 +201,18 @@ namespace lxh
 		}
 		overwrite(set);
 		return true;
+	}
+	LxhDescriptorWriter& LxhDescriptorWriter::builds(std::vector<VkDescriptorSet>& sets)
+	{
+		std::vector<VkDescriptorSetLayout> layouts(LxhSwapChain::MAX_FRAME_IN_FLIGHT, setLayout.getDescriptorSetLayout());
+		bool success = pool.allocateDescriptors(layouts, sets);
+		if (!success) {
+			throw std::runtime_error("failed to allocate descriptors!");
+		}
+		for (auto& set : sets) {
+			overwrite(set);
+		}
+		return *this;
 	}
 
 	void LxhDescriptorWriter::overwrite(VkDescriptorSet& set)

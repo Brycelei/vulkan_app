@@ -11,6 +11,8 @@
 #include <vector>
 
 namespace lxh {
+
+	
 	class App {
 	public:
 		static constexpr int WIDTH = 800;
@@ -28,7 +30,7 @@ namespace lxh {
 		void loadGameObjects();
 
 		LxhWindow lxhWindow{ WIDTH, HEIGHT, "Vulkan Tutorial" };
-		LxhDevice lxhDevice{ lxhWindow };
+		LxhDevice& lxhDevice = LxhDevice::getInstance(lxhWindow); // 单例获取
 		LxhRenderer lxhRenderer{ lxhWindow, lxhDevice };
 
 		// note: order of declarations matters

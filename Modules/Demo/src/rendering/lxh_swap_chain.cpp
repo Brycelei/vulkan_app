@@ -367,6 +367,10 @@ namespace lxh
 		}
 	}
 
+	/*
+		inFlightFences：这个数组的大小是MAX_FRAMES_IN_FLIGHT这么多，用来表示当前的Frame所对应的Fence
+		imagesInFlight：这个数组的大小是SwapChainImageCount这么多，用来表示当前某一个交换链当中图片所对应的Fence
+	*/
 	void LxhSwapChain::createSyncObjects()
 	{
 		imageAvailableSemaphores.resize(MAX_FRAME_IN_FLIGHT);

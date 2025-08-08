@@ -73,6 +73,9 @@ namespace lxh {
 		bool allocateDescriptor(
 			const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
 
+		bool allocateDescriptors(
+			std::vector<VkDescriptorSetLayout>& descriptorSetLayout, std::vector<VkDescriptorSet>& descriptor) const;
+
 		void freeDescriptors(std::vector<VkDescriptorSet>& descriptors) const;
 
 		void resetPool();
@@ -92,6 +95,8 @@ namespace lxh {
 		LxhDescriptorWriter& writeImage(uint32_t binding, VkDescriptorImageInfo* imageInfo);
 
 		bool build(VkDescriptorSet& set);
+		LxhDescriptorWriter& builds(std::vector<VkDescriptorSet>& sets);
+
 		void overwrite(VkDescriptorSet& set);
 
 	private:

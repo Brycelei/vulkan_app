@@ -29,10 +29,10 @@ namespace lxh
 	VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const;
 	VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
-	void writeToIndexBuffer(void* data, uint32_t index);
-	VkResult flushIndex(uint32_t index);
-	VkDescriptorBufferInfo descriptorIndexInfo(uint32_t index) const;
-	VkResult invalidateIndex(uint32_t index);
+	void writeToIndexBuffer(void* data, int index);
+	VkResult flushIndex(int index);
+	VkDescriptorBufferInfo descriptorIndexInfo(int index) const;
+	VkResult invalidateIndex(int index);
 
 	VkBuffer getBuffer() const { return buffer_; }
 	void* getMappedMemory() const { return mapped; }

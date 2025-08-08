@@ -20,14 +20,18 @@
 
 namespace lxh
 {
-	
+	lxh::LxhWindow* g_window_ptr = nullptr;
+
 	App::App()
 	{
 		globalPool = LxhDescriptorPool::Builder(lxhDevice)
 			.setMaxSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT)
 			.addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, LxhSwapChain::MAX_FRAME_IN_FLIGHT)
+			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
 			.build();
+		g_window_ptr = &lxhWindow;
 		loadGameObjects();
+
 	}
 
 	void App::run()
@@ -48,14 +52,37 @@ namespace lxh
 		auto globalSetLayout =
 			LxhDescriptorSetLayout::Builder(lxhDevice)
 			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 			.build();
 
+		// 1. 选定一个用于绑定纹理的 GameObject（如第一个模型对象）
+		auto modelIt = std::find_if(
+			gameObjects.begin(), gameObjects.end(),
+			[](const auto& pair) { return pair.second.model != nullptr; }
+		);
+		if (modelIt == gameObjects.end()) {
+			throw std::runtime_error("No model found in gameObjects for descriptor set binding!");
+		}
+		auto model = modelIt->second.model;
+		auto meshList = model->getMeshes();
+		if (meshList.empty() || meshList[0]->m_textures.empty()) {
+			throw std::runtime_error("No mesh or texture found for descriptor set binding!");
+		}
+		auto& texture = meshList[0]->m_textures[0];
+
+		// 2. 获取 VkDescriptorImageInfo
+		VkDescriptorImageInfo imageInfo = texture.texture.GetDescriptorRef();
+
 		std::vector<VkDescriptorSet> globalDescriptorSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT);
+
+		auto descriptorWrite =  LxhDescriptorWriter(*globalSetLayout, *globalPool)
+			//		.writeImage(1, &imageInfo)
+			.builds(globalDescriptorSets);
+
 		for (int i = 0; i < globalDescriptorSets.size(); i++) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			LxhDescriptorWriter(*globalSetLayout, *globalPool)
-				.writeBuffer(0, &bufferInfo)
-				.build(globalDescriptorSets[i]);
+			descriptorWrite.writeBuffer(0, &bufferInfo);
+			descriptorWrite.writeImage(1, &imageInfo);			
 		}
 
 	  RenderSystem simpleRenderSystem{
@@ -124,15 +151,15 @@ namespace lxh
 
 	void App::loadGameObjects()
 	{
-		/*std::shared_ptr<LxhModel> lveModel =
-			LxhModel::createModelFromFile(lxhDevice, "assets/models/fx11/FX11_A2.obj");
+		std::shared_ptr<LxhModel> lveModel =
+			LxhModel::createModelFromFile(lxhDevice, "assets/models/FS11/FS11.obj");
 		auto flatVase = LxhGameObject::createGameObject();
 		flatVase.model = lveModel;
 		flatVase.transform.translation = { -.5f, .5f, 0.f };
 		flatVase.transform.scale = { 0.02f, 0.02f, 0.02f };
-		gameObjects.emplace(flatVase.getId(), std::move(flatVase));*/
+		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
 
-		std::shared_ptr<LxhModel> lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
+		 lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
 		auto smoothVase = LxhGameObject::createGameObject();
 		smoothVase.model = lveModel;
 		smoothVase.transform.translation = { .5f, .5f, 0.f };

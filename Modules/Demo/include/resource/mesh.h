@@ -1,5 +1,6 @@
 #include "lxh_buffer.h"
 #include "lxh_device.h"
+#include "lxh_texture.h"
 
 // libs
 #define GLM_FORCE_RADIANS
@@ -26,6 +27,13 @@ namespace lxh
 		}
 	};
 
+	struct Texture
+	{
+		Texture2D texture;
+		std::string type;
+		std::string path;
+	};
+
 	class Mesh
 	{
 	public:
@@ -33,20 +41,31 @@ namespace lxh
 		~Mesh();
 
 		Mesh(const Mesh&);
-		Mesh(const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices);
-		Mesh(std::vector<uint32_t>& indices, std::vector<Vertex>& vertices);
+		Mesh(const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices,
+		std::string name, std::vector<Texture> &textures);
+		Mesh(std::vector<uint32_t>& indices, std::vector<Vertex>& vertices, 
+		std::string name, std::vector<Texture>& textures);
 
 		Mesh& operator=(const Mesh&) = delete;
-
+		Mesh(Mesh&& other) noexcept;
 		const std::shared_ptr<LxhBuffer> getVertexBuffer() { return vertexBuffer; }
 		const std::shared_ptr<LxhBuffer> getIndexBuffer() { return indexBuffer; }
 		void setName(const std::string& name) { m_name = name; }
 		const std::string& getName() const { return m_name; }
 
+		void bind(VkCommandBuffer commandBuffer);
+		void draw(VkCommandBuffer commandBuffer);
+
+		void createVertexBuffers(LxhDevice& device, const std::vector<Vertex>& vertices);
+
+		void createIndexBuffers(LxhDevice& device, const std::vector<uint32_t>& indices);
+
 		std::vector<Vertex> vertices{};
 		std::vector<uint32_t> indices{};
 		
+		std::vector<Texture> m_textures;
 	private:
+	
 		std::shared_ptr<LxhBuffer> vertexBuffer;
 		uint32_t vertexCount;
 

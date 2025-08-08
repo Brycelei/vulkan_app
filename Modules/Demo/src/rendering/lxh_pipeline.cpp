@@ -101,8 +101,8 @@ namespace lxh
 			static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
 		configInfo.dynamicStateInfo.flags = 0;
 
-		configInfo.bindingDescriptions = LxhModel::Vertex::getBindingDescriptions();
-		configInfo.attributeDescriptions = LxhModel::Vertex::getAttributeDescriptions();
+		configInfo.bindingDescriptions = Vertex::getBindingDescriptions();
+		configInfo.attributeDescriptions = Vertex::getAttributeDescriptions();
 	}
 
 	void LxhPipeline::enableAlphaBlending(PipelineConfigInfo& configInfo)

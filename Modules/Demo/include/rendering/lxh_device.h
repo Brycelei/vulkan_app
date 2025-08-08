@@ -5,6 +5,8 @@
 
 namespace lxh
 {
+	extern lxh::LxhWindow* g_window_ptr; // 你需要在工程中定义并初始化它
+
 	struct SwapChainSupportDeatails
 	{
 		VkSurfaceCapabilitiesKHR capabilities;
@@ -33,16 +35,24 @@ namespace lxh
 		const bool enableValidationLayers = true;
 #endif
 
-		LxhDevice(LxhWindow& window);
-		~LxhDevice();
-		LxhDevice(const LxhDevice&) = delete;
-		LxhDevice& operator=(const LxhDevice&) = delete;
+ // 单例获取方法
+    static LxhDevice& getInstance(LxhWindow& window) {
+        static LxhDevice instance(window);
+        return instance;
+    }
+	static LxhDevice& getInstance()
+	{
+		// 注意：此重载要求先用带参数的 getInstance 初始化一次
+		return getInstance(*g_window_ptr);
+	}
+		
 		VkCommandPool getCommandPool() const { return commandPool; }
 		VkDevice getDevice() const { return device_; }
 
 		VkSurfaceKHR getSurface() const { return surface_; }
 		VkQueue getGraphicsQueue() const { return graphicsQueue_; }
 		VkQueue getPresentQueue() const { return presentQueue_; }
+		VkPhysicalDevice getPhysicalDevice()const { return physicalDevice_;}
 
 		SwapChainSupportDeatails getSwapChainSupportDetails()
 		{
@@ -85,10 +95,22 @@ namespace lxh
 			VkImage& image,
 			VkDeviceMemory& imageMemory
 		);
+		bool hasStencilComponent(VkFormat format);
+		void transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, 
+		uint32_t layerCount = 1, uint32_t mipLevels = 1);
+		void transitionImageLayoutCmd(
+			VkCommandBuffer commandBuffer, VkImage &image, 
+			VkFormat format, VkImageLayout oldLayout, 
+			VkImageLayout newLayout, uint32_t layerCount = 1, 
+			uint32_t mipLevels = 1);
 
 		VkPhysicalDeviceProperties properties;
 
 	private:
+		LxhDevice(LxhWindow& window);
+		~LxhDevice();
+		LxhDevice(const LxhDevice&) = delete;
+		LxhDevice& operator=(const LxhDevice&) = delete;
 		void createInstance();
 		void setupDebugMessenger();
 		void createSurface();

@@ -85,6 +85,8 @@ namespace lxh
 		return VkDescriptorBufferInfo(buffer_, offset, size);
 	}
 
+
+
 	VkResult LxhBuffer::invalidate(VkDeviceSize size /*= VK_WHOLE_SIZE*/, VkDeviceSize offset /*= 0*/)
 	{
 		VkMappedMemoryRange mappedRange{};
@@ -95,22 +97,22 @@ namespace lxh
 		return vkInvalidateMappedMemoryRanges(device.getDevice(), 1, &mappedRange);
 	}
 
-	void LxhBuffer::writeToIndexBuffer(void* data, uint32_t index)
+	void LxhBuffer::writeToIndexBuffer(void* data, int index)
 	{
 		writeToBuffer(data, instanceSize, index * alignmentSize);
 	}
 
-	VkResult LxhBuffer::flushIndex(uint32_t index)
+	VkResult LxhBuffer::flushIndex(int index)
 	{
 		return flush(alignmentSize, index * alignmentSize);
 	}
 
-	VkDescriptorBufferInfo LxhBuffer::descriptorIndexInfo(uint32_t index) const
+	VkDescriptorBufferInfo LxhBuffer::descriptorIndexInfo(int index) const
 	{
 		return descriptorInfo(alignmentSize, index * alignmentSize);	
 	}
 
-	VkResult LxhBuffer::invalidateIndex(uint32_t index)
+	VkResult LxhBuffer::invalidateIndex(int index)
 	{
 		return invalidate(alignmentSize, index * alignmentSize);
 	}
