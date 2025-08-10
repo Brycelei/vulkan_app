@@ -81,8 +81,10 @@ namespace lxh
 
 		for (int i = 0; i < globalDescriptorSets.size(); i++) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			VkDescriptorSet ds = globalDescriptorSets[i];
 			descriptorWrite.writeBuffer(0, &bufferInfo);
-			descriptorWrite.writeImage(1, &imageInfo);			
+			descriptorWrite.writeImage(1, &imageInfo);	
+			descriptorWrite.overwrite(ds);
 		}
 
 	  RenderSystem simpleRenderSystem{
@@ -152,14 +154,14 @@ namespace lxh
 	void App::loadGameObjects()
 	{
 		std::shared_ptr<LxhModel> lveModel =
-			LxhModel::createModelFromFile(lxhDevice, "assets/models/FS11/FS11.obj");
+			LxhModel::createModelFromFile(lxhDevice, "assets/models/backpack/backpack.obj");
 		auto flatVase = LxhGameObject::createGameObject();
 		flatVase.model = lveModel;
-		flatVase.transform.translation = { -.5f, .5f, 0.f };
-		flatVase.transform.scale = { 0.02f, 0.02f, 0.02f };
+		flatVase.transform.translation = { 0.f, 0.5f, 0.f };
+		flatVase.transform.scale = { 0.2f, 0.2f, 0.2f };
 		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
 
-		 lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
+		 /*lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
 		auto smoothVase = LxhGameObject::createGameObject();
 		smoothVase.model = lveModel;
 		smoothVase.transform.translation = { .5f, .5f, 0.f };
@@ -171,7 +173,7 @@ namespace lxh
 		floor.model = lveModel;
 		floor.transform.translation = { 0.f, .5f, 0.f };
 		floor.transform.scale = { 3.f, 1.f, 3.f };
-		gameObjects.emplace(floor.getId(), std::move(floor));
+		gameObjects.emplace(floor.getId(), std::move(floor));*/
 
 		std::vector<glm::vec3> lightColors{
 			{1.f, .1f, .1f},

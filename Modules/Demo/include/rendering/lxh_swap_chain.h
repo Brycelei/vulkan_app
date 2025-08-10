@@ -73,6 +73,10 @@ namespace lxh
 		std::vector<VkImage> swapChainImages;
 		std::vector<VkImageView> swapChainImageViews;
 
+		std::vector<VkImage> secondaryColorImages;
+		std::vector<VkImageView> secondaryColorImageViews;
+		std::vector<VkDeviceMemory> secondaryColorImageMemorys;
+
 		LxhDevice &device;
 		VkExtent2D windowExtent;
 

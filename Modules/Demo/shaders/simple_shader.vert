@@ -7,7 +7,9 @@ layout(location = 3) in vec3 Tangent;
 layout(location = 4) in vec3 Bitengent;
 
 layout(location = 0) out vec3 fragPosWorld;
-layout(location = 1) out vec3 fragNormalWorld;
+layout(location = 1) out vec2 fragTexCoord;
+layout(location = 2) out vec3 fragNormalWorld;
+
 
 struct PointLight {
   vec4 position; // ignore w
@@ -33,4 +35,5 @@ void main() {
   gl_Position = ubo.projection * ubo.view * positionWorld;
   fragNormalWorld = normalize(mat3(push.normalMatrix) * Normal);
   fragPosWorld = positionWorld.xyz;
+  fragTexCoord = TexCoords;
 }

@@ -118,6 +118,9 @@ namespace lxh
 			p_textures.insert(p_textures.end(), specularTextures.begin(), specularTextures.end());
 			auto normalTextures = ExtractTextures(p_scene, material, aiTextureType_HEIGHT, "texture_normal");
 			p_textures.insert(p_textures.end(), normalTextures.begin(), normalTextures.end());
+			 // 4. height maps
+			auto heightTextures = ExtractTextures(p_scene, material, aiTextureType_AMBIENT, "texture_height");
+			p_textures.insert(p_textures.end(), heightTextures.begin(), heightTextures.end());
 		}
 	}
 

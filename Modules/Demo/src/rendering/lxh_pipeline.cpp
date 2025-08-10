@@ -59,7 +59,8 @@ namespace lxh
 		configInfo.multisampleInfo.alphaToCoverageEnable = VK_FALSE;
 		configInfo.multisampleInfo.alphaToOneEnable = VK_FALSE;
 
-		configInfo.colorBlendAttachment.colorWriteMask =
+
+	/*	configInfo.colorBlendAttachment.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		configInfo.colorBlendAttachment.blendEnable = VK_FALSE;
 		configInfo.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -67,13 +68,39 @@ namespace lxh
 		configInfo.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
 		configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 		configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;*/
+
+		// 配置第一个颜色附件的混合状态
+		VkPipelineColorBlendAttachmentState colorBlendAttachment1{};
+		colorBlendAttachment1.colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment1.blendEnable = VK_FALSE;
+		colorBlendAttachment1.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment1.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment1.colorBlendOp = VK_BLEND_OP_ADD;
+		colorBlendAttachment1.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment1.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment1.alphaBlendOp = VK_BLEND_OP_ADD;
+
+		// 配置第二个颜色附件的混合状态
+		VkPipelineColorBlendAttachmentState colorBlendAttachment2{};
+		colorBlendAttachment2.colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment2.blendEnable = VK_FALSE;
+		colorBlendAttachment2.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment2.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment2.colorBlendOp = VK_BLEND_OP_ADD;
+		colorBlendAttachment2.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment2.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment2.alphaBlendOp = VK_BLEND_OP_ADD;
+		configInfo.colorBlendAttachments = { colorBlendAttachment1, colorBlendAttachment2 };
+
 
 		configInfo.colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		configInfo.colorBlendInfo.logicOpEnable = VK_FALSE;
 		configInfo.colorBlendInfo.logicOp = VK_LOGIC_OP_COPY;
-		configInfo.colorBlendInfo.attachmentCount = 1;
-		configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment;
+		configInfo.colorBlendInfo.attachmentCount = static_cast<uint32_t>(configInfo.colorBlendAttachments.size());
+		configInfo.colorBlendInfo.pAttachments = configInfo.colorBlendAttachments.data();
 		configInfo.colorBlendInfo.blendConstants[0] = 0.0f;
 		configInfo.colorBlendInfo.blendConstants[1] = 0.0f;
 		configInfo.colorBlendInfo.blendConstants[2] = 0.0f;
@@ -107,15 +134,19 @@ namespace lxh
 
 	void LxhPipeline::enableAlphaBlending(PipelineConfigInfo& configInfo)
 	{
-		configInfo.colorBlendAttachment.blendEnable = VK_TRUE;
-		configInfo.colorBlendAttachment.colorWriteMask = 
-			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		configInfo.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		configInfo.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		configInfo.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		for (auto & colorBlendAttachment : configInfo.colorBlendAttachments)
+		{
+			colorBlendAttachment.blendEnable = VK_TRUE;
+			colorBlendAttachment.colorWriteMask =
+				VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+			colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+			colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+			colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		}
+	
 	}
 
 	std::vector<char> LxhPipeline::readFile(const std::string& filepath)

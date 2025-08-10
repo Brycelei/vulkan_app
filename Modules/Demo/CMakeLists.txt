@@ -8,7 +8,7 @@ find_package(glew CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-set(VULKAN_SDK_PATH C:\\VulkanSDK\\1.3.280.0)
+set(VULKAN_SDK_PATH D:\\VulkanSDK\\1.4.309.0)
 
 # 1. Set VULKAN_SDK_PATH in .env.cmake to target specific vulkan version
 if (DEFINED VULKAN_SDK_PATH)

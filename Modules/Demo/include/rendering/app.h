@@ -36,5 +36,6 @@ namespace lxh {
 		// note: order of declarations matters
 		std::unique_ptr<LxhDescriptorPool> globalPool{};
 		LxhGameObject::Map gameObjects;
+		std::unordered_map<std::shared_ptr<Mesh>, std::vector<VkDescriptorSet>> meshDescriptorSets;
 	};
 }

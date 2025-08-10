@@ -1,9 +1,12 @@
 #version 450
 
-layout (location = 0) in vec3 fragPosWorld;
-layout (location = 1) in vec3 fragNormalWorld;
+layout(location = 0) in vec3 fragPosWorld;
+layout(location = 1) in vec2 fragTexCoord;
+layout(location = 2) in vec3 fragNormalWorld;
 
 layout (location = 0) out vec4 outColor;
+
+layout(binding = 1) uniform sampler2D texSampler;
 
 struct PointLight {
   vec4 position; // ignore w
@@ -51,5 +54,7 @@ void main() {
     specularLight += intensity * blinnTerm;
   }
   
-  outColor = vec4(diffuseLight + specularLight, 1.0);
+//  outColor = vec4(diffuseLight1 + specularLight, 1.0);
+      outColor = texture(texSampler, fragTexCoord);
+
 }

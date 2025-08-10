@@ -10,15 +10,14 @@
 
 namespace lxh
 {
-	
-	LxhSwapChain::LxhSwapChain(LxhDevice& devcie, VkExtent2D windowExtent):
-		device{devcie}, windowExtent(windowExtent)
+	LxhSwapChain::LxhSwapChain(LxhDevice& devcie, VkExtent2D windowExtent) :
+		device{ devcie }, windowExtent(windowExtent)
 	{
 		init();
 	}
 
 	LxhSwapChain::LxhSwapChain(LxhDevice& device, VkExtent2D windowExtent, std::shared_ptr<LxhSwapChain>(previous))
-	: device(device), windowExtent(windowExtent), oldSwapChain{previous}
+		: device(device), windowExtent(windowExtent), oldSwapChain{ previous }
 	{
 		init();
 		oldSwapChain = nullptr;
@@ -39,7 +38,6 @@ namespace lxh
 		return device.findSupportFormat(requireDepthFomats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	}
 
-
 	/*
 	Outline of a frame
 	1. 等待上一帧绘制完成（需要阻塞cpu)
@@ -47,7 +45,6 @@ namespace lxh
 	3. 开始录制到命令缓冲区，BeginRenderPass->bindPipeline->SetViewport->draw，绘制场景到取出的图像上
 	4. 录制结束的命令缓冲区·提交到queue
 	5. 展示交换链图像
-	
 
 	- 进行了对于Fence的阻塞等待，用了currentFrame作为imageIndex来索引Fence。
 	- 使用vkAcquireNextImageKHR来获取下一帧可以使用的图片，并且绑定一个Semaphore，用了currentFrame作为index来索引Semaphore。
@@ -58,13 +55,13 @@ namespace lxh
 	VkResult LxhSwapChain::acquireNextImage(uint32_t* imageIndex)
 	{
 		vkWaitForFences(device.getDevice(), 1, &inFlightFences[currentFrame],
-		VK_TRUE,
-		std::numeric_limits<uint64_t>::max());
+			VK_TRUE,
+			std::numeric_limits<uint64_t>::max());
 
-		VkResult result = vkAcquireNextImageKHR(device.getDevice(),swapChain, std::numeric_limits<uint64_t>::max(),
-		imageAvailableSemaphores[currentFrame],
-		VK_NULL_HANDLE,
-		imageIndex);
+		VkResult result = vkAcquireNextImageKHR(device.getDevice(), swapChain, std::numeric_limits<uint64_t>::max(),
+			imageAvailableSemaphores[currentFrame],
+			VK_NULL_HANDLE,
+			imageIndex);
 
 		return result;
 	}
@@ -79,11 +76,11 @@ namespace lxh
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		
+
 		VkSemaphore waitSemaphores[] = {
 			imageAvailableSemaphores[currentFrame]
 		};
-		
+
 		VkPipelineStageFlags waiteStages[] = {
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
 		};
@@ -174,7 +171,7 @@ namespace lxh
 			indices.graphicsFamily,
 			indices.presentFamily
 		};
-		
+
 		if (indices.graphicsFamily != indices.presentFamily)
 		{
 			swapChainInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -190,11 +187,11 @@ namespace lxh
 
 		swapChainInfo.preTransform = swapChainSupport.capabilities.currentTransform;
 		swapChainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		
+
 		swapChainInfo.presentMode = presentMode;
 		swapChainInfo.clipped = VK_TRUE;
 
-		swapChainInfo.oldSwapchain = oldSwapChain == nullptr? VK_NULL_HANDLE: oldSwapChain->swapChain;
+		swapChainInfo.oldSwapchain = oldSwapChain == nullptr ? VK_NULL_HANDLE : oldSwapChain->swapChain;
 		if (vkCreateSwapchainKHR(device.getDevice(), &swapChainInfo, nullptr, &swapChain) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create swapChain!");
@@ -226,6 +223,44 @@ namespace lxh
 			if (vkCreateImageView(device.getDevice(), &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS)
 			{
 				throw std::runtime_error("failed to create texture image view!");
+			}
+		}
+
+		secondaryColorImages.resize(getImageCount());
+		secondaryColorImageMemorys.resize(getImageCount());
+		secondaryColorImageViews.resize(getImageCount());
+
+		for (size_t i = 0; i < getImageCount(); i++) {
+			VkImageCreateInfo imageInfo{};
+			imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageInfo.imageType = VK_IMAGE_TYPE_2D;
+			imageInfo.extent.width = swapChainExtent.width;
+			imageInfo.extent.height = swapChainExtent.height;
+			imageInfo.extent.depth = 1;
+			imageInfo.mipLevels = 1;
+			imageInfo.arrayLayers = 1;
+			imageInfo.format = getSwapChainImageFormat();  // 与主颜色附件格式一致
+			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+			imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+			device.CreateImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, secondaryColorImages[i], secondaryColorImageMemorys[i]);
+
+			VkImageViewCreateInfo viewInfo{};
+			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewInfo.image = secondaryColorImages[i];
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.format = getSwapChainImageFormat();
+			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewInfo.subresourceRange.baseMipLevel = 0;
+			viewInfo.subresourceRange.levelCount = 1;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = 1;
+
+			if (vkCreateImageView(device.getDevice(), &viewInfo, nullptr, &secondaryColorImageViews[i]) != VK_SUCCESS) {
+				throw std::runtime_error("failed to create secondary color image view!");
 			}
 		}
 
@@ -292,27 +327,47 @@ namespace lxh
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentReference depthAttachmentRef{};
-		depthAttachmentRef.attachment = 1;
+		/*
+			对应shader中的深度附件
+		*/
+		depthAttachmentRef.attachment = 2;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkAttachmentDescription colorAttachemnt{};
-		colorAttachemnt.format = getSwapChainImageFormat();
-		colorAttachemnt.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachemnt.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachemnt.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachemnt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachemnt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachemnt.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachemnt.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		VkAttachmentDescription colorAttachemnt1{};
+		colorAttachemnt1.format = getSwapChainImageFormat();
+		colorAttachemnt1.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachemnt1.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachemnt1.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachemnt1.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachemnt1.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachemnt1.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachemnt1.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		VkAttachmentReference colorAttachmentRef{};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		VkAttachmentReference colorAttachmentRef1;
+		colorAttachmentRef1.attachment = 0;
+		colorAttachmentRef1.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		// 第二个颜色附件
+		VkAttachmentDescription colorAttachment2{};
+		colorAttachment2.format = getSwapChainImageFormat();
+		colorAttachment2.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment2.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment2.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment2.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment2.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment2.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment2.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		VkAttachmentReference colorAttachmentRef2;
+		colorAttachmentRef2.attachment = 1;
+		colorAttachmentRef2.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		std::array<VkAttachmentReference, 2> colorAttachments = { colorAttachmentRef1, colorAttachmentRef2 };
 
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size());
+		subpass.pColorAttachments = colorAttachments.data();
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
 		//define the transitions
@@ -324,11 +379,11 @@ namespace lxh
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.srcAccessMask = 0;
-		dependency.srcStageMask = 
+		dependency.srcStageMask =
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
-		std::array<VkAttachmentDescription, 2> attachments = {colorAttachemnt, depthAttachment};
-		
+		std::array<VkAttachmentDescription, 3> attachments = { colorAttachemnt1,colorAttachment2, depthAttachment };
+
 		VkRenderPassCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		createInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -349,7 +404,11 @@ namespace lxh
 		swapChainFramebuffers.resize(getImageCount());
 		for (size_t i = 0; i < getImageCount(); i++)
 		{
-			std::array<VkImageView,2> attachments = {swapChainImageViews[i], depthImageViews[i]};
+			std::array<VkImageView, 3> attachments = { 
+				swapChainImageViews[i],
+				secondaryColorImageViews[i],  // 第二个颜色附件（需要提前创建） 
+				depthImageViews[i] 
+			};
 			VkExtent2D swapChainExtent = getSwapChainExtent();
 
 			VkFramebufferCreateInfo createInfo{};
@@ -380,17 +439,17 @@ namespace lxh
 
 		VkSemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	
+
 		VkFenceCreateInfo fenceInfo{};
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		// this means when we first create this fence, the fence has been signaled 
+		// this means when we first create this fence, the fence has been signaled
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 		for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
 		{
 			if (vkCreateSemaphore(device.getDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS
-			 || vkCreateSemaphore(device.getDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS
-			 || vkCreateFence(device.getDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+				|| vkCreateSemaphore(device.getDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS
+				|| vkCreateFence(device.getDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
 			{
 				throw std::runtime_error("failed to create synchronization objects for a frame!");
 			}
@@ -416,7 +475,7 @@ namespace lxh
 		{
 			if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 			{
-				std::cout<<"current present Mode : MaliBox"<<std::endl;
+				std::cout << "current present Mode : MaliBox" << std::endl;
 				return availablePresentMode;
 			}
 		}
@@ -480,5 +539,4 @@ namespace lxh
 			vkDestroyFence(device.getDevice(), inFlightFences[i], nullptr);
 		}
 	}
-
 }

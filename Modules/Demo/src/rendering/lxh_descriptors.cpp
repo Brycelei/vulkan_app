@@ -209,9 +209,6 @@ namespace lxh
 		if (!success) {
 			throw std::runtime_error("failed to allocate descriptors!");
 		}
-		for (auto& set : sets) {
-			overwrite(set);
-		}
 		return *this;
 	}
 
@@ -223,6 +220,8 @@ namespace lxh
 		vkUpdateDescriptorSets(pool.lxhDevice.getDevice(), writes.size(), writes.data(), 0, nullptr);
 	
 	}
+
+
 
 }
 

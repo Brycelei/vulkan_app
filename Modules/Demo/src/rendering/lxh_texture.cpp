@@ -2,7 +2,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "stb_image_resize.h"
 #include <stdexcept>
 namespace lxh {
 
@@ -212,6 +211,7 @@ namespace lxh {
 		/*vkDestroySampler(LxhDevice::getInstance().getDevice(), m_sampler, nullptr);
 		vkDestroyImageView(LxhDevice::getInstance().getDevice(), m_imageView, nullptr);
 		vkDestroyImage(LxhDevice::getInstance().getDevice(), m_image, nullptr);*/
+		m_imageBuffer.reset();
 	}
 
 	void Texture2D::UpdateDescriptor()
