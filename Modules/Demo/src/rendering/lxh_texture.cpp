@@ -211,7 +211,25 @@ namespace lxh {
 		/*vkDestroySampler(LxhDevice::getInstance().getDevice(), m_sampler, nullptr);
 		vkDestroyImageView(LxhDevice::getInstance().getDevice(), m_imageView, nullptr);
 		vkDestroyImage(LxhDevice::getInstance().getDevice(), m_image, nullptr);*/
-		m_imageBuffer.reset();
+		//m_imageBuffer.reset();
+
+	/*	if (m_imageView != VK_NULL_HANDLE)
+		{
+			vkDestroyImageView(LxhDevice::getInstance().getDevice(), m_imageView, nullptr);
+			m_imageView = VK_NULL_HANDLE;
+		}
+
+		if (m_image != VK_NULL_HANDLE)
+		{
+			vkDestroyImage(LxhDevice::getInstance().getDevice(), m_image, nullptr);
+			m_image = VK_NULL_HANDLE;
+		}
+
+		if (m_sampler != VK_NULL_HANDLE)
+		{
+			vkDestroySampler(LxhDevice::getInstance().getDevice(), m_sampler, nullptr);
+			m_sampler = VK_NULL_HANDLE;
+		}*/
 	}
 
 	void Texture2D::UpdateDescriptor()

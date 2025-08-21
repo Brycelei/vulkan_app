@@ -71,12 +71,11 @@ namespace lxh
 		auto& texture = meshList[0]->m_textures[0];
 
 		// 2. 获取 VkDescriptorImageInfo
-		VkDescriptorImageInfo imageInfo = texture.texture.GetDescriptorRef();
+		VkDescriptorImageInfo imageInfo = texture.texture->GetDescriptorRef();
 
 		std::vector<VkDescriptorSet> globalDescriptorSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT);
 
 		auto descriptorWrite =  LxhDescriptorWriter(*globalSetLayout, *globalPool)
-			//		.writeImage(1, &imageInfo)
 			.builds(globalDescriptorSets);
 
 		for (int i = 0; i < globalDescriptorSets.size(); i++) {

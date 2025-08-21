@@ -70,7 +70,7 @@ namespace lxh
 		configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;*/
 
-		// ÅäÖÃµÚÒ»¸öÑÕÉ«¸½¼þµÄ»ìºÏ×´Ì¬
+		// ï¿½ï¿½ï¿½Ãµï¿½Ò»ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½×´Ì¬
 		VkPipelineColorBlendAttachmentState colorBlendAttachment1{};
 		colorBlendAttachment1.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -82,7 +82,7 @@ namespace lxh
 		colorBlendAttachment1.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		colorBlendAttachment1.alphaBlendOp = VK_BLEND_OP_ADD;
 
-		// ÅäÖÃµÚ¶þ¸öÑÕÉ«¸½¼þµÄ»ìºÏ×´Ì¬
+		// ï¿½ï¿½ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½×´Ì¬
 		VkPipelineColorBlendAttachmentState colorBlendAttachment2{};
 		colorBlendAttachment2.colorWriteMask =
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;

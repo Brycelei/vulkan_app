@@ -34,7 +34,7 @@ namespace lxh
 		VkPipelineRasterizationStateCreateInfo rasterizationInfo;
 		VkPipelineMultisampleStateCreateInfo multisampleInfo;
 		//VkPipelineColorBlendAttachmentState colorBlendAttachment;
-		std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;  // Ö§³Ö¶à¸öÑÕÉ«¸½¼þ
+		std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;  // Ö§ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½
 
 		VkPipelineColorBlendStateCreateInfo colorBlendInfo;
 		VkPipelineDepthStencilStateCreateInfo depthStencilInfo;

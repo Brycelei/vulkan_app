@@ -18,8 +18,10 @@ namespace lxh
 	{
 		Assimp::Importer import;
 
-
-		const aiScene * scene = import.ReadFile(p_fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+		/*
+		* when use vulkan , must not flip Y
+		*/
+		const aiScene * scene = import.ReadFile(p_fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals  | aiProcess_CalcTangentSpace);
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 			return false;
@@ -149,8 +151,9 @@ namespace lxh
 			{
 		
 				Texture2D texture2D = Texture2D(std::string(m_directory + "/" + std::string(textureFilename.C_Str())));
+				std::shared_ptr<Texture2D> texturePtr = std::make_shared<Texture2D>(std::move(texture2D));
 
-				Texture tex = { texture2D, typeName, std::string(textureFilename.C_Str()) };
+				Texture tex = { std::move(texturePtr), typeName, std::string(textureFilename.C_Str()) };
 				textures.push_back(tex);
 				m_cachedTextures.push_back(tex);
 			}

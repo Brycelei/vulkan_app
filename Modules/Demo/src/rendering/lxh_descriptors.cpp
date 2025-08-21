@@ -31,7 +31,7 @@ namespace lxh
 			:lxhDevice{ lxhDevice }, bindings{ bindings }
 		{
 			std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
-			for (auto const kv : bindings) {
+			for (auto const &kv : bindings) {
 				setLayoutBindings.push_back(kv.second);
 			}
 

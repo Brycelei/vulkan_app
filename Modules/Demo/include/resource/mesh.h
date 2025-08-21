@@ -29,9 +29,12 @@ namespace lxh
 
 	struct Texture
 	{
-		Texture2D texture;
+		std::shared_ptr<Texture2D> texture;
 		std::string type;
 		std::string path;
+
+		Texture(std::shared_ptr<Texture2D> texture2D, std::string type, std::string filename)
+			: texture(texture2D), type(type), path(filename) {}
 	};
 
 	class Mesh
