@@ -27,7 +27,7 @@ namespace lxh
 		globalPool = LxhDescriptorPool::Builder(lxhDevice)
 			.setMaxSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT)
 			.addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, LxhSwapChain::MAX_FRAME_IN_FLIGHT)
-			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
+			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, LxhSwapChain::MAX_FRAME_IN_FLIGHT)
 			.build();
 		g_window_ptr = &lxhWindow;
 		loadGameObjects();

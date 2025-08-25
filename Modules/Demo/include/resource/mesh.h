@@ -67,6 +67,8 @@ namespace lxh
 		std::vector<uint32_t> indices{};
 		
 		std::vector<Texture> m_textures;
+
+		//std::shared_ptr<LxhMaterial> m_material = nullptr;
 	private:
 	
 		std::shared_ptr<LxhBuffer> vertexBuffer;
