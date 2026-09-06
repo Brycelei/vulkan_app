@@ -14,7 +14,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
   mat4 invView;
   vec4 ambientLightColor; // w is intensity
   PointLight pointLights[10];
-  int numLights;
+  ivec4 numLights; // x is the number of active lights
 } ubo;
 
 layout(push_constant) uniform Push {

@@ -1,57 +1,40 @@
-
-
-#include<model_loader.h>
+#include <model_loader.h>
 #include <lxh_texture.h>
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include <assimp/cimport.h>
-
-#include<iostream>
 
 namespace lxh
 {
-	
-
-	bool AssimpParser::LoadModel(const std::string& p_fileName, std::vector<std::shared_ptr<Mesh>>& p_meshes, std::vector<std::string>& p_materials)
+	bool AssimpParser::LoadModel(const std::string& p_fileName, LxhDevice& device, std::vector<std::shared_ptr<Mesh>>& p_meshes)
 	{
+		// The cache only deduplicates textures within a single model load; clearing
+		// it up front makes sure the parser never owns GPU resources of a previous load.
+		m_cachedTextures.clear();
+
 		Assimp::Importer import;
 
 		/*
 		* when use vulkan , must not flip Y
 		*/
-		const aiScene * scene = import.ReadFile(p_fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals  | aiProcess_CalcTangentSpace);
+		const aiScene* scene = import.ReadFile(p_fileName, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 			return false;
 
-		//ProcessMaterials(scene, p_materials);
-		m_directory = p_fileName.substr(0, p_fileName.find_last_of("/"));
+		m_directory = p_fileName.substr(0, p_fileName.find_last_of("/\\"));
 		aiMatrix4x4 identity;
 
-		ProcessNode(&identity, scene->mRootNode, scene, p_meshes);
+		ProcessNode(identity, scene->mRootNode, scene, device, p_meshes);
 
 		return true;
-
 	}
 
-	void AssimpParser::ProcessMaterials(const aiScene* p_scene, std::vector<std::string>& p_materials)
+	void AssimpParser::ProcessNode(const aiMatrix4x4& p_transform, aiNode* p_node, const aiScene* p_scene,
+		LxhDevice& device, std::vector<std::shared_ptr<Mesh>>& p_meshes)
 	{
-		for (uint32_t i = 0; i < p_scene->mNumMaterials; ++i)
-		{
-			aiMaterial* material = p_scene->mMaterials[i];
-			if (material)
-			{
-				aiString name;
-				aiGetMaterialString(material, AI_MATKEY_NAME, &name);
-				p_materials.push_back(name.C_Str());
-			}
-		}
-	}
-	void AssimpParser::ProcessNode(void* p_transform, aiNode* p_node, const aiScene* p_scene, std::vector<std::shared_ptr<Mesh>>& p_meshes)
-	{
-		aiMatrix4x4 nodeTransformation = *reinterpret_cast<aiMatrix4x4*>(p_transform) * p_node->mTransformation;
+		aiMatrix4x4 nodeTransformation = p_transform * p_node->mTransformation;
 		// Process all the node's meshes (if any)
 		for (uint32_t i = 0; i < p_node->mNumMeshes; ++i)
 		{
@@ -59,45 +42,39 @@ namespace lxh
 			std::vector<uint32_t> indices;
 			std::vector<Texture> textures;
 			aiMesh* mesh = p_scene->mMeshes[p_node->mMeshes[i]];
-			std::string materialName = mesh->mName.C_Str();
-			ProcessMesh(&nodeTransformation, mesh, p_scene, vertices, indices, textures);
-			std::shared_ptr<Mesh> meshtemp = std::make_shared<Mesh>(indices, vertices, materialName,textures);
-			p_meshes.push_back(meshtemp); // The model will handle mesh destruction
+			std::string meshName = mesh->mName.C_Str();
+			ProcessMesh(nodeTransformation, mesh, p_scene, device, vertices, indices, textures);
+			p_meshes.push_back(std::make_shared<Mesh>(std::move(indices), std::move(vertices),
+				std::move(meshName), std::move(textures)));
 		}
 
 		// Then do the same for each of its children
 		for (uint32_t i = 0; i < p_node->mNumChildren; ++i)
 		{
-			ProcessNode(&nodeTransformation, p_node->mChildren[i], p_scene, p_meshes);
+			ProcessNode(nodeTransformation, p_node->mChildren[i], p_scene, device, p_meshes);
 		}
 	}
-	void AssimpParser::ProcessMesh(void* p_transform, struct aiMesh* p_mesh, 
-	const struct aiScene* p_scene, std::vector<Vertex>& p_outVertices, std::vector<uint32_t>& p_outIndices, 
-	std::vector<Texture>& p_textures)
-	{
-		aiMatrix4x4 meshTransformation = *reinterpret_cast<aiMatrix4x4*>(p_transform);
 
+	void AssimpParser::ProcessMesh(const aiMatrix4x4& p_transform, aiMesh* p_mesh, const aiScene* p_scene,
+		LxhDevice& device, std::vector<Vertex>& p_outVertices, std::vector<uint32_t>& p_outIndices,
+		std::vector<Texture>& p_textures)
+	{
 		for (uint32_t i = 0; i < p_mesh->mNumVertices; ++i)
 		{
-			const aiVector3D position = meshTransformation * p_mesh->mVertices[i];
+			const aiVector3D position = p_transform * p_mesh->mVertices[i];
 			const aiVector3D texCoords = p_mesh->mTextureCoords[0] ? p_mesh->mTextureCoords[0][i] : aiVector3D(0.0f, 0.0f, 0.0f);
-			const aiVector3D normal = meshTransformation * (p_mesh->mNormals ? p_mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f));
-			const aiVector3D tangent = meshTransformation * (p_mesh->mTangents ? p_mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f));
-			const aiVector3D bitangent = meshTransformation * (p_mesh->mBitangents ? p_mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f));
+			const aiVector3D normal = p_transform * (p_mesh->mNormals ? p_mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f));
+			const aiVector3D tangent = p_transform * (p_mesh->mTangents ? p_mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f));
+			const aiVector3D bitangent = p_transform * (p_mesh->mBitangents ? p_mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f));
 
-			//for vulkan, using left hand coordinate
-			glm::vec3 temppositon{ position.x, -position.y, position.z };
-			glm::vec2 temptexCoords{ texCoords.x, texCoords.y };
-			glm::vec3 tempnormal{ normal.x, normal.y, normal.z };
-			glm::vec3 temptangent{ tangent.x, tangent.y, tangent.z };
-			glm::vec3 tempbitangent{ bitangent.x, bitangent.y, bitangent.z };
-
+			// Vulkan's Y axis points down compared to the OBJ convention: flip Y for
+			// positions AND their basis vectors so normals stay on the outward side.
 			p_outVertices.push_back({
-				temppositon,
-				temptexCoords,
-				tempnormal,
-				temptangent,
-				tempbitangent
+				{position.x, -position.y, position.z},
+				{texCoords.x, texCoords.y},
+				{normal.x, -normal.y, normal.z},
+				{tangent.x, -tangent.y, tangent.z},
+				{bitangent.x, -bitangent.y, bitangent.z}
 				});
 		}
 
@@ -109,27 +86,29 @@ namespace lxh
 				p_outIndices.push_back(face.mIndices[indexID]);
 		}
 
-		// Process textures
+		// Extract PBR texture slots. Specular maps are intentionally dropped:
+		// the Cook-Torrance BRDF derives specular from metallic/roughness instead.
 		if (p_mesh->mMaterialIndex >= 0)
 		{
 			aiMaterial* material = p_scene->mMaterials[p_mesh->mMaterialIndex];
 
-			auto diffuseTextures = ExtractTextures(p_scene, material, aiTextureType_DIFFUSE, "texture_diffuse");
-			p_textures.insert(p_textures.end(), diffuseTextures.begin(), diffuseTextures.end());
-			auto specularTextures = ExtractTextures(p_scene, material, aiTextureType_SPECULAR, "texture_specular");
-			p_textures.insert(p_textures.end(), specularTextures.begin(), specularTextures.end());
-			auto normalTextures = ExtractTextures(p_scene, material, aiTextureType_HEIGHT, "texture_normal");
+			auto albedoTextures = ExtractTextures(material, device, aiTextureType_DIFFUSE, TextureType::Albedo, VK_FORMAT_R8G8B8A8_SRGB);
+			p_textures.insert(p_textures.end(), albedoTextures.begin(), albedoTextures.end());
+			auto normalTextures = ExtractTextures(material, device, aiTextureType_HEIGHT, TextureType::Normal, VK_FORMAT_R8G8B8A8_UNORM);
 			p_textures.insert(p_textures.end(), normalTextures.begin(), normalTextures.end());
-			 // 4. height maps
-			auto heightTextures = ExtractTextures(p_scene, material, aiTextureType_AMBIENT, "texture_height");
-			p_textures.insert(p_textures.end(), heightTextures.begin(), heightTextures.end());
+			auto normalTextures2 = ExtractTextures(material, device, aiTextureType_NORMALS, TextureType::Normal, VK_FORMAT_R8G8B8A8_UNORM);
+			p_textures.insert(p_textures.end(), normalTextures2.begin(), normalTextures2.end());
+			auto roughnessTextures = ExtractTextures(material, device, aiTextureType_SHININESS, TextureType::Roughness, VK_FORMAT_R8G8B8A8_UNORM);
+			p_textures.insert(p_textures.end(), roughnessTextures.begin(), roughnessTextures.end());
+			auto aoTextures = ExtractTextures(material, device, aiTextureType_AMBIENT, TextureType::AO, VK_FORMAT_R8G8B8A8_UNORM);
+			p_textures.insert(p_textures.end(), aoTextures.begin(), aoTextures.end());
 		}
 	}
 
-	std::vector<Texture> AssimpParser::ExtractTextures(const aiScene* scene, aiMaterial* material, aiTextureType textureType, const std::string& typeName)
+	std::vector<Texture> AssimpParser::ExtractTextures(aiMaterial* material, LxhDevice& device,
+		aiTextureType textureType, const std::string& typeName, VkFormat format)
 	{
 		std::vector<Texture> textures;
-		unsigned int j = material->GetTextureCount(textureType);
 		for (unsigned int i = 0; i < material->GetTextureCount(textureType); ++i)
 		{
 			aiString textureFilename;
@@ -137,11 +116,11 @@ namespace lxh
 
 			// check if texture was loaded before and if so, continue to next iteration: skip loading a new texture
 			bool skip = false;
-			for (unsigned int j = 0; j < m_cachedTextures.size(); ++j)
+			for (const auto& cached : m_cachedTextures)
 			{
-				if (std::strcmp(m_cachedTextures[j].path.data(), textureFilename.C_Str()) == 0)
+				if (cached.path == textureFilename.C_Str())
 				{
-					textures.emplace_back(m_cachedTextures[j]);
+					textures.push_back(cached);
 					skip = true; // a texture with the same filepath has already been loaded, continue to next one. (optimization)
 					break;
 				}
@@ -149,9 +128,7 @@ namespace lxh
 
 			if (!skip) // if texture hasn't been loaded already, load it
 			{
-		
-				Texture2D texture2D = Texture2D(std::string(m_directory + "/" + std::string(textureFilename.C_Str())));
-				std::shared_ptr<Texture2D> texturePtr = std::make_shared<Texture2D>(std::move(texture2D));
+				auto texturePtr = std::make_shared<Texture2D>(device, m_directory + "/" + textureFilename.C_Str(), format);
 
 				Texture tex = { std::move(texturePtr), typeName, std::string(textureFilename.C_Str()) };
 				textures.push_back(tex);
@@ -160,5 +137,4 @@ namespace lxh
 		}
 		return textures;
 	}
-
 }

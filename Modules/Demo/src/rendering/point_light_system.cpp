@@ -46,7 +46,7 @@ namespace lxh {
 
 			lightIndex += 1;
 		}
-		ubo.numLights = lightIndex;
+		ubo.numLights.x = lightIndex;
 	}
 
 	void PointLightSystem::render(FrameInfo& frameInfo)

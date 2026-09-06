@@ -8,7 +8,7 @@
 
 namespace lxh {
 
-#define MAX_LIGHTS 10
+static constexpr int MAX_LIGHTS = 10;
 
 struct PointLight {
   glm::vec4 position{};  // ignore w
@@ -21,7 +21,7 @@ struct GlobalUbo {
   glm::mat4 inverseView{1.f};
   glm::vec4 ambientLightColor{1.f, 1.f, 1.f, .02f};  // w is intensity
   PointLight pointLights[MAX_LIGHTS];
-  int numLights;
+  glm::ivec4 numLights;  // std140: scalar int occupies a full vec4 slot; .x is the light count
 };
 
 struct FrameInfo {

@@ -1,4 +1,5 @@
 #include "render_system.h"
+#include "material.h"
 
 // libs
 #define GLM_FORCE_RADIANS
@@ -12,18 +13,23 @@
 #include <stdexcept>
 
 
-
 namespace lxh
 {
-	struct SimplePushConstantData {
+	// Must match the 128-byte push constant block in pbr_shader.vert/.frag:
+	// mat4 model + 3 vec4 normal-matrix columns + vec4 material params.
+	struct PbrPushConstantData {
 		glm::mat4 modelMatrix{ 1.f };
-		glm::mat4 normalMatrix{ 1.f };
+		glm::vec4 nrmCol0{};
+		glm::vec4 nrmCol1{};
+		glm::vec4 nrmCol2{};
+		glm::vec4 materialParams{};  // x = metallic, y = roughness, z = ao
 	};
 
-	RenderSystem::RenderSystem(LxhDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
-	:lxhDevice{device}
+	RenderSystem::RenderSystem(LxhDevice& device, VkRenderPass renderPass,
+		VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout materialSetLayout)
+		: lxhDevice{ device }
 	{
-		createPipelineLayout(globalSetLayout);
+		createPipelineLayout(globalSetLayout, materialSetLayout);
 		createPipeline(renderPass);
 	}
 
@@ -44,31 +50,59 @@ namespace lxh
 
 		for (auto& kv : frameInfo.gameObjects)
 		{
-			auto &obj  = kv.second;
+			auto& obj = kv.second;
 			if (obj.model == nullptr) continue;
-			SimplePushConstantData push{};
-			push.modelMatrix = obj.transform.mat4();
-			push.normalMatrix = obj.transform.normalMatrix();
 
-			vkCmdPushConstants(
-				frameInfo.commandBuffer,
-				pipelineLayout,
-				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-				0,
-				sizeof(SimplePushConstantData),
-				&push);
-			obj.model->draw(frameInfo.commandBuffer);
+			PbrPushConstantData push{};
+			push.modelMatrix = obj.transform.mat4();
+
+			const glm::mat3 normalMatrix = obj.transform.normalMatrix();
+			push.nrmCol0 = glm::vec4(normalMatrix[0], 0.f);
+			push.nrmCol1 = glm::vec4(normalMatrix[1], 0.f);
+			push.nrmCol2 = glm::vec4(normalMatrix[2], 0.f);
+
+			for (const auto& mesh : obj.model->getMeshes())
+			{
+				const LxhMaterial* material = mesh->material.get();
+				if (material == nullptr) continue;  // mesh has no material assigned yet
+
+				const MaterialParams& params = material->getParams();
+				push.materialParams = glm::vec4(params.metallic, params.roughness, params.ao, 0.f);
+
+				vkCmdPushConstants(
+					frameInfo.commandBuffer,
+					pipelineLayout,
+					VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+					0,
+					sizeof(PbrPushConstantData),
+					&push);
+
+				VkDescriptorSet materialSet = material->getDescriptorSet();
+				vkCmdBindDescriptorSets(
+					frameInfo.commandBuffer,
+					VK_PIPELINE_BIND_POINT_GRAPHICS,
+					pipelineLayout,
+					1,
+					1,
+					&materialSet,
+					0,
+					nullptr);
+
+				mesh->bind(frameInfo.commandBuffer);
+				mesh->draw(frameInfo.commandBuffer);
+			}
 		}
 	}
 
-	void RenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout)
+	void RenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout materialSetLayout)
 	{
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		pushConstantRange.offset = 0;
-		pushConstantRange.size = sizeof(SimplePushConstantData);
+		pushConstantRange.size = sizeof(PbrPushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout };
+		// set 0: global UBO, set 1: PBR material samplers
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout, materialSetLayout };
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -85,15 +119,15 @@ namespace lxh
 	void RenderSystem::createPipeline(VkRenderPass renderPass)
 	{
 		assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
-		
+
 		PipelineConfigInfo pipelineConfig{};
 		LxhPipeline::defaultPipelineConfigInfo(pipelineConfig);
 		pipelineConfig.renderPass = renderPass;
 		pipelineConfig.pipelineLayout = pipelineLayout;
 		lxhPipeline = std::make_unique<LxhPipeline>(
 			lxhDevice,
-			"./shaders/simple_shader.vert.spv",
-			"./shaders/simple_shader.frag.spv",
+			"./shaders/pbr_shader.vert.spv",
+			"./shaders/pbr_shader.frag.spv",
 			pipelineConfig);
 	}
 

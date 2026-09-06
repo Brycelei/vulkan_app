@@ -155,7 +155,7 @@ namespace lxh
 
 	}
 
-	LxhDescriptorWriter& LxhDescriptorWriter::writeBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo)
+	LxhDescriptorWriter& LxhDescriptorWriter::writeBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo)
 	{
 		assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 		auto& bindingDescription = setLayout.bindings[binding];
@@ -174,7 +174,7 @@ namespace lxh
 		return *this;
 	}
 
-	LxhDescriptorWriter& LxhDescriptorWriter::writeImage(uint32_t binding, VkDescriptorImageInfo* imageInfo)
+	LxhDescriptorWriter& LxhDescriptorWriter::writeImage(uint32_t binding, const VkDescriptorImageInfo* imageInfo)
 	{
 		assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
 		auto &bindingDescription = setLayout.bindings[binding];
@@ -219,6 +219,11 @@ namespace lxh
 		}
 		vkUpdateDescriptorSets(pool.lxhDevice.getDevice(), writes.size(), writes.data(), 0, nullptr);
 	
+	}
+
+	void LxhDescriptorWriter::clear()
+	{
+		writes.clear();
 	}
 
 

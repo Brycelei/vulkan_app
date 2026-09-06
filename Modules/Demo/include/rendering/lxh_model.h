@@ -10,26 +10,25 @@
 
 // std
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace lxh {
 	class LxhModel {
-		public:
+	public:
 		struct Builder {
-		
-			void loadModel(const std::string& filepath);
 
-			static AssimpParser __ASSIMP;
-			
+			void loadModel(const std::string& filepath, LxhDevice& device);
+
+			AssimpParser parser;
 			std::vector<std::shared_ptr<Mesh>> m_meshs;
-			std::vector<std::string> m_materialNames;
 
 			std::string m_directory;
 			std::string m_name;
 		};
 
 		LxhModel(LxhDevice& device, const LxhModel::Builder& builder);
-		~LxhModel();
+		~LxhModel() = default;
 
 		LxhModel(const LxhModel&) = delete;
 		LxhModel& operator=(const LxhModel&) = delete;
@@ -37,15 +36,11 @@ namespace lxh {
 		static std::unique_ptr<LxhModel> createModelFromFile(
 			LxhDevice& device, const std::string& filepath);
 
-		void draw(VkCommandBuffer commandbuffer);
-		std::vector<std::shared_ptr<Mesh>> getMeshes() const { return m_meshs; }
-	private:
-		void createVertexBuffers(LxhDevice& device, Mesh & mesh);
-		void createIndexBuffers(LxhDevice& device, Mesh& mesh);
+		const std::vector<std::shared_ptr<Mesh>>& getMeshes() const { return m_meshs; }
 
+	private:
 		LxhDevice& lxhDevice;
 
 		std::vector<std::shared_ptr<Mesh>> m_meshs;
-		std::vector<std::string> m_materialNames;
 	};
 }  // namespace lxh

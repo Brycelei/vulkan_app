@@ -1,12 +1,13 @@
 #pragma once
-#include<mesh.h>
-#include<core.h>
+#include <mesh.h>
 
 struct aiMesh;
 struct aiScene;
 struct aiNode;
 struct aiMaterial;
-enum  aiTextureType;
+template <typename TReal> struct aiMatrix4x4t;
+typedef aiMatrix4x4t<float> aiMatrix4x4;
+enum aiTextureType;
 
 namespace lxh
 {
@@ -14,23 +15,28 @@ namespace lxh
 	{
 	public:
 		/**
-		* Simply load meshes from a file using assimp
+		* Load meshes (with PBR texture slots) from a file using assimp.
+		* Textures referenced by the model are uploaded to the GPU immediately.
 		* Return true on success
-		* @param p_filename
-		* @param p_meshes
+		* @param p_fileName  path to the model file
+		* @param device      Vulkan device used to create texture resources
+		* @param p_meshes    output meshes
 		*/
 		bool LoadModel
 		(
 			const std::string& p_fileName,
-			std::vector<std::shared_ptr<Mesh>>& p_meshes,
-			std::vector<std::string>& p_materials
+			LxhDevice& device,
+			std::vector<std::shared_ptr<Mesh>>& p_meshes
 		);
 
 	private:
-		void ProcessMaterials(const struct aiScene* p_scene, std::vector<std::string>& p_materials);;
-		void ProcessNode(void* p_transform, struct aiNode* p_node, const struct aiScene* p_scene, std::vector<std::shared_ptr<Mesh>>& p_meshes);
-		void ProcessMesh(void* p_transform, struct aiMesh* p_mesh, const struct aiScene* p_scene, std::vector<Vertex>& p_outVertices, std::vector<uint32_t>& p_outIndices, std::vector<Texture>& p_textures);
-		std::vector<Texture> ExtractTextures(const aiScene* scene, aiMaterial* material, aiTextureType textureType, const std::string& typeName);
+		void ProcessNode(const aiMatrix4x4& p_transform, aiNode* p_node, const aiScene* p_scene,
+			LxhDevice& device, std::vector<std::shared_ptr<Mesh>>& p_meshes);
+		void ProcessMesh(const aiMatrix4x4& p_transform, aiMesh* p_mesh, const aiScene* p_scene,
+			LxhDevice& device, std::vector<Vertex>& p_outVertices, std::vector<uint32_t>& p_outIndices,
+			std::vector<Texture>& p_textures);
+		std::vector<Texture> ExtractTextures(aiMaterial* material, LxhDevice& device,
+			aiTextureType textureType, const std::string& typeName, VkFormat format);
 
 		std::vector<Texture> m_cachedTextures;
 		std::string m_directory;

@@ -1,8 +1,11 @@
-#include<app.h>
+#include <app.h>
 
 #include "keyboard_movement_controller.h"
 #include "lxh_buffer.h"
 #include "lxh_camera.h"
+#include "lxh_model.h"
+#include "material.h"
+#include "mesh.h"
 #include "point_light_system.h"
 #include "render_system.h"
 
@@ -20,18 +23,39 @@
 
 namespace lxh
 {
-	lxh::LxhWindow* g_window_ptr = nullptr;
-
 	App::App()
 	{
-		globalPool = LxhDescriptorPool::Builder(lxhDevice)
-			.setMaxSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT)
-			.addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, LxhSwapChain::MAX_FRAME_IN_FLIGHT)
-			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
-			.build();
-		g_window_ptr = &lxhWindow;
 		loadGameObjects();
 
+		// Size the pool for the global UBO sets (one per frame in flight)
+		// plus one material set with 4 samplers per mesh.
+		uint32_t meshCount = 0;
+		for (const auto& kv : gameObjects) {
+			if (kv.second.model != nullptr) {
+				meshCount += static_cast<uint32_t>(kv.second.model->getMeshes().size());
+			}
+		}
+
+		globalPool = LxhDescriptorPool::Builder(lxhDevice)
+			.setMaxSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT + meshCount)
+			.addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, LxhSwapChain::MAX_FRAME_IN_FLIGHT)
+			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * meshCount)
+			.build();
+
+		globalSetLayout = LxhDescriptorSetLayout::Builder(lxhDevice)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+			.build();
+
+		// set 1: albedo / normal / roughness / AO combined image samplers
+		materialSetLayout = LxhDescriptorSetLayout::Builder(lxhDevice)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+			.build();
+
+		createDefaultTextures();
+		createMaterials();
 	}
 
 	void App::run()
@@ -49,47 +73,25 @@ namespace lxh
 			uboBuffers[i]->map();
 		}
 
-		auto globalSetLayout =
-			LxhDescriptorSetLayout::Builder(lxhDevice)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-			.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-			.build();
-
-		// 1. 选定一个用于绑定纹理的 GameObject（如第一个模型对象）
-		auto modelIt = std::find_if(
-			gameObjects.begin(), gameObjects.end(),
-			[](const auto& pair) { return pair.second.model != nullptr; }
-		);
-		if (modelIt == gameObjects.end()) {
-			throw std::runtime_error("No model found in gameObjects for descriptor set binding!");
-		}
-		auto model = modelIt->second.model;
-		auto meshList = model->getMeshes();
-		if (meshList.empty() || meshList[0]->m_textures.empty()) {
-			throw std::runtime_error("No mesh or texture found for descriptor set binding!");
-		}
-		auto& texture = meshList[0]->m_textures[0];
-
-		// 2. 获取 VkDescriptorImageInfo
-		VkDescriptorImageInfo imageInfo = texture.texture->GetDescriptorRef();
-
 		std::vector<VkDescriptorSet> globalDescriptorSets(LxhSwapChain::MAX_FRAME_IN_FLIGHT);
 
-		auto descriptorWrite =  LxhDescriptorWriter(*globalSetLayout, *globalPool)
+		auto descriptorWrite = LxhDescriptorWriter(*globalSetLayout, *globalPool)
 			.builds(globalDescriptorSets);
 
 		for (int i = 0; i < globalDescriptorSets.size(); i++) {
 			auto bufferInfo = uboBuffers[i]->descriptorInfo();
 			VkDescriptorSet ds = globalDescriptorSets[i];
 			descriptorWrite.writeBuffer(0, &bufferInfo);
-			descriptorWrite.writeImage(1, &imageInfo);	
 			descriptorWrite.overwrite(ds);
+			// reset the writer so writes don't accumulate across iterations
+			descriptorWrite.clear();
 		}
 
-	  RenderSystem simpleRenderSystem{
-	  lxhDevice,
-	  lxhRenderer.getSwapChainRenderPass(),
-	  globalSetLayout->getDescriptorSetLayout() };
+		RenderSystem pbrRenderSystem{
+			lxhDevice,
+			lxhRenderer.getSwapChainRenderPass(),
+			globalSetLayout->getDescriptorSetLayout(),
+			materialSetLayout->getDescriptorSetLayout() };
 		PointLightSystem pointLightSystem{
 			lxhDevice,
 			lxhRenderer.getSwapChainRenderPass(),
@@ -138,7 +140,7 @@ namespace lxh
 				lxhRenderer.beginSwapChainRenderpass(commandBuffer);
 
 				// order here matters
-				simpleRenderSystem.renderGameObjects(frameInfo);
+				pbrRenderSystem.renderGameObjects(frameInfo);
 				pointLightSystem.render(frameInfo);
 
 				lxhRenderer.endSwapChainRenderpass(commandBuffer);
@@ -148,6 +150,61 @@ namespace lxh
 
 		vkDeviceWaitIdle(lxhDevice.getDevice());
 
+	}
+
+	void App::createDefaultTextures()
+	{
+		// white = neutral albedo, full roughness and no occlusion;
+		// rgb(128,128,255) decodes to the flat +Z tangent-space normal
+		const std::vector<unsigned char> white = { 255, 255, 255, 255 };
+		const std::vector<unsigned char> flatNormal = { 128, 128, 255, 255 };
+		const VkExtent3D extent{ 1, 1, 1 };
+
+		defaultAlbedo = std::make_shared<Texture2D>(lxhDevice, white, extent, VK_FORMAT_R8G8B8A8_SRGB);
+		defaultNormal = std::make_shared<Texture2D>(lxhDevice, flatNormal, extent, VK_FORMAT_R8G8B8A8_UNORM);
+		defaultRoughness = std::make_shared<Texture2D>(lxhDevice, white, extent, VK_FORMAT_R8G8B8A8_UNORM);
+		defaultAO = std::make_shared<Texture2D>(lxhDevice, white, extent, VK_FORMAT_R8G8B8A8_UNORM);
+	}
+
+	void App::createMaterials()
+	{
+		for (auto& kv : gameObjects)
+		{
+			auto& obj = kv.second;
+			if (obj.model == nullptr) continue;
+
+			for (const auto& mesh : obj.model->getMeshes())
+			{
+				if (mesh->material != nullptr) continue;
+
+				std::shared_ptr<Texture2D> albedoTex;
+				std::shared_ptr<Texture2D> normalTex;
+				std::shared_ptr<Texture2D> roughnessTex;
+				std::shared_ptr<Texture2D> aoTex;
+				for (const auto& tex : mesh->m_textures) {
+					if (tex.type == TextureType::Albedo && !albedoTex) albedoTex = tex.texture;
+					else if (tex.type == TextureType::Normal && !normalTex) normalTex = tex.texture;
+					else if (tex.type == TextureType::Roughness && !roughnessTex) roughnessTex = tex.texture;
+					else if (tex.type == TextureType::AO && !aoTex) aoTex = tex.texture;
+				}
+
+				auto material = std::make_shared<LxhMaterial>(
+					*globalPool,
+					*materialSetLayout,
+					albedoTex ? albedoTex : defaultAlbedo,
+					normalTex ? normalTex : defaultNormal,
+					roughnessTex ? roughnessTex : defaultRoughness,
+					aoTex ? aoTex : defaultAO);
+
+				MaterialParams params{};
+				params.metallic = 0.1f;   // the backpack is mostly dielectric
+				params.roughness = 1.0f;  // scale factor; the roughness map holds the base value
+				params.ao = 1.0f;
+				material->setParams(params);
+
+				mesh->material = std::move(material);
+			}
+		}
 	}
 
 	void App::loadGameObjects()
@@ -160,20 +217,6 @@ namespace lxh
 		flatVase.transform.scale = { 0.2f, 0.2f, 0.2f };
 		gameObjects.emplace(flatVase.getId(), std::move(flatVase));
 
-		 /*lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/smooth_vase.obj");
-		auto smoothVase = LxhGameObject::createGameObject();
-		smoothVase.model = lveModel;
-		smoothVase.transform.translation = { .5f, .5f, 0.f };
-		smoothVase.transform.scale = { 3.f, 1.5f, 3.f };
-		gameObjects.emplace(smoothVase.getId(), std::move(smoothVase));
-
-		lveModel = LxhModel::createModelFromFile(lxhDevice, "assets/models/quad.obj");
-		auto floor = LxhGameObject::createGameObject();
-		floor.model = lveModel;
-		floor.transform.translation = { 0.f, .5f, 0.f };
-		floor.transform.scale = { 3.f, 1.f, 3.f };
-		gameObjects.emplace(floor.getId(), std::move(floor));*/
-
 		std::vector<glm::vec3> lightColors{
 			{1.f, .1f, .1f},
 			{.1f, .1f, 1.f},
@@ -184,7 +227,9 @@ namespace lxh
 		};
 
 		for (int i = 0; i < lightColors.size(); i++) {
-			auto pointLight = LxhGameObject::makePointLight(0.2f);
+			// PBR uses inverse-square attenuation, so the lights need a much
+			// stronger intensity than the old Blinn-Phong demo used
+			auto pointLight = LxhGameObject::makePointLight(10.f);
 			pointLight.color = lightColors[i];
 			auto rotateLight = glm::rotate(
 				glm::mat4(1.f),

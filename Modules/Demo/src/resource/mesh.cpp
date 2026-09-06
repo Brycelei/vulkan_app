@@ -1,133 +1,89 @@
-#include<mesh.h>
+#include <mesh.h>
 
+#include <cassert>
 
 namespace lxh
-{ 
-std::vector<VkVertexInputBindingDescription> Vertex::getBindingDescriptions()
 {
-	std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
-	bindingDescriptions[0].binding = 0;
-	bindingDescriptions[0].stride = sizeof(Vertex);
-	bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	return bindingDescriptions;
-
-}
-
-std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions()
-{
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(5);
-
-	attributeDescriptions[0].binding = 0;
-	attributeDescriptions[0].location = 0;
-	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[0].offset = offsetof(Vertex, Position);
-
-	attributeDescriptions[1].binding = 0;
-	attributeDescriptions[1].location = 1;
-	attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-	attributeDescriptions[1].offset = offsetof(Vertex, TexCoords);
-
-	attributeDescriptions[2].binding = 0;
-	attributeDescriptions[2].location = 2;
-	attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[2].offset = offsetof(Vertex, Normal);
-
-	attributeDescriptions[3].binding = 0;
-	attributeDescriptions[3].location = 3;
-	attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[3].offset = offsetof(Vertex, Tangent);
-
-	attributeDescriptions[4].binding = 0;
-	attributeDescriptions[4].location = 4;
-	attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[4].offset = offsetof(Vertex, Bitangent);
-
-	return attributeDescriptions;
-}
-
-
-	Mesh::Mesh()
-		: m_name("default")
-		, indexBuffer(nullptr)
-		, vertexBuffer(nullptr)
-		, vertexCount(0)
-		, indexCount(0)
+	std::vector<VkVertexInputBindingDescription> Vertex::getBindingDescriptions()
 	{
-
+		std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
+		bindingDescriptions[0].binding = 0;
+		bindingDescriptions[0].stride = sizeof(Vertex);
+		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		return bindingDescriptions;
 	}
-	Mesh::Mesh(const Mesh& mesh)
-		: m_name(mesh.m_name)
-		, indexBuffer(mesh.indexBuffer)
-		, vertexBuffer(mesh.vertexBuffer)
-		, vertexCount(mesh.vertexCount)
-		, indexCount(mesh.indexCount)
+
+	std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions()
+	{
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(5);
+
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, Position);
+
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, TexCoords);
+
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, Normal);
+
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(Vertex, Tangent);
+
+		attributeDescriptions[4].binding = 0;
+		attributeDescriptions[4].location = 4;
+		attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[4].offset = offsetof(Vertex, Bitangent);
+
+		return attributeDescriptions;
+	}
+
+	Mesh::Mesh(std::vector<uint32_t> indices, std::vector<Vertex> vertices, std::string name, std::vector<Texture> textures)
+		: vertices(std::move(vertices))
+		, indices(std::move(indices))
+		, m_textures(std::move(textures))
+		, m_name(std::move(name))
+		, vertexCount(static_cast<uint32_t>(this->vertices.size()))
+		, indexCount(static_cast<uint32_t>(this->indices.size()))
+		, hasIndexBuffer(indexCount > 0)
 	{
 	}
 
-
-	Mesh::Mesh(const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices, std::string  name, std::vector<Texture> &textures)
-		: indexBuffer(nullptr)
-		, vertexBuffer(nullptr)
-		, vertexCount(static_cast<uint32_t>(vertices.size()))
-		, indexCount(static_cast<uint32_t>(indices.size()))
-		,vertices(vertices)
-		,indices(indices)
-		,m_name(name)
-		,m_textures(textures)
+	Mesh::Mesh(Mesh&& other) noexcept
+		: vertices(std::move(other.vertices))
+		, indices(std::move(other.indices))
+		, m_textures(std::move(other.m_textures))
+		, material(std::move(other.material))
+		, m_name(std::move(other.m_name))
+		, vertexBuffer(std::move(other.vertexBuffer))
+		, vertexCount(other.vertexCount)
+		, indexBuffer(std::move(other.indexBuffer))
+		, indexCount(other.indexCount)
+		, hasIndexBuffer(other.hasIndexBuffer)
 	{
-		if (indices.size() > 0)
-		{
-			hasIndexBuffer = true;
-		}
-	}
-
-	Mesh::Mesh(std::vector<uint32_t>& indices, std::vector<Vertex>& vertices, std::string name, std::vector<Texture> &textures)
-		: indexBuffer(nullptr)
-		, vertexBuffer(nullptr)
-		, vertexCount(static_cast<uint32_t>(vertices.size()))
-		, indexCount(static_cast<uint32_t>(indices.size()))
-		, vertices(vertices)
-		, indices(indices)
-		, m_name(name)
-		,m_textures(textures)
-	{
-		if (indices.size() > 0)
-		{
-			hasIndexBuffer = true;
-		}
-	}
-	
-	Mesh::Mesh(Mesh&& other)noexcept
-	{
-		m_name = std::move(other.m_name);
-		indexBuffer = std::move(other.indexBuffer);
-		vertexBuffer = std::move(other.vertexBuffer);
-		vertexCount = other.vertexCount;
-		indexCount = other.indexCount;
-		hasIndexBuffer = other.hasIndexBuffer;
-		vertices = std::move(other.vertices);
-		indices = std::move(other.indices);
-
 		other.vertexCount = 0;
 		other.indexCount = 0;
 		other.hasIndexBuffer = false;
 	}
 
-	void Mesh::bind(VkCommandBuffer commandBuffer)
+	void Mesh::bind(VkCommandBuffer commandBuffer) const
 	{
 		VkBuffer buffers[] = { vertexBuffer->getBuffer() };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 		if (hasIndexBuffer) {
-			
 			vkCmdBindIndexBuffer(commandBuffer, indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-		}
-		else {
-			vkCmdBindIndexBuffer(commandBuffer, VK_NULL_HANDLE, 0, VK_INDEX_TYPE_NONE_KHR);
 		}
 	}
 
-	void Mesh::draw(VkCommandBuffer commandBuffer)
+	void Mesh::draw(VkCommandBuffer commandBuffer) const
 	{
 		if (hasIndexBuffer)
 		{
@@ -138,9 +94,9 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions(
 		}
 	}
 
-	void Mesh::createVertexBuffers(LxhDevice &device,const std::vector<Vertex>& vertices)
+	void Mesh::createVertexBuffers(LxhDevice& device)
 	{
-		assert(vertexCount > 3 && "Vertex count must be at least 3");
+		assert(vertexCount >= 3 && "Vertex count must be at least 3");
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
 		uint32_t vertexSize = sizeof(vertices[0]);
 		LxhBuffer stagingBuffer{
@@ -152,7 +108,7 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions(
 		};
 
 		stagingBuffer.map();
-		stagingBuffer.writeToBuffer((void*)(vertices.data()));
+		stagingBuffer.writeToBuffer(vertices.data());
 
 		vertexBuffer = std::make_unique<LxhBuffer>(
 			device,
@@ -164,9 +120,9 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions(
 		device.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(), bufferSize);
 	}
 
-	void Mesh::createIndexBuffers(LxhDevice& device, const std::vector<uint32_t>& indices)
+	void Mesh::createIndexBuffers(LxhDevice& device)
 	{
-		indexCount = static_cast<uint32_t>(indices.size()); // 修复：确保indexCount和indices一致
+		indexCount = static_cast<uint32_t>(indices.size());
 		hasIndexBuffer = indexCount > 0;
 		if (!hasIndexBuffer)
 		{
@@ -185,7 +141,7 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions(
 		};
 
 		stagingBuffer.map();
-		stagingBuffer.writeToBuffer((void*)(indices.data()));
+		stagingBuffer.writeToBuffer(indices.data());
 
 		indexBuffer = std::make_unique<LxhBuffer>(
 			device,
@@ -195,12 +151,5 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions(
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);
 		device.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(), bufferSize);
-
 	}
-
-	Mesh::~Mesh()
-	{
-
-	}
-
 }

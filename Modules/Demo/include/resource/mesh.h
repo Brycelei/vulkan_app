@@ -1,3 +1,4 @@
+#pragma once
 #include "lxh_buffer.h"
 #include "lxh_device.h"
 #include "lxh_texture.h"
@@ -7,10 +8,14 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-#include<memory>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace lxh
 {
+	class LxhMaterial;
+
 	struct Vertex {
 		glm::vec3 Position{};
 		glm::vec2 TexCoords{};
@@ -27,6 +32,16 @@ namespace lxh
 		}
 	};
 
+	// Texture slot tags filled in by the model loader; App::createMaterials()
+	// turns these into a LxhMaterial (PBR descriptor set) per mesh.
+	namespace TextureType
+	{
+		constexpr const char* Albedo = "texture_albedo";
+		constexpr const char* Normal = "texture_normal";
+		constexpr const char* Roughness = "texture_roughness";
+		constexpr const char* AO = "texture_ao";
+	}
+
 	struct Texture
 	{
 		std::shared_ptr<Texture2D> texture;
@@ -34,47 +49,44 @@ namespace lxh
 		std::string path;
 
 		Texture(std::shared_ptr<Texture2D> texture2D, std::string type, std::string filename)
-			: texture(texture2D), type(type), path(filename) {}
+			: texture(std::move(texture2D)), type(std::move(type)), path(std::move(filename)) {}
 	};
 
 	class Mesh
 	{
 	public:
-		Mesh();
-		~Mesh();
+		Mesh(std::vector<uint32_t> indices, std::vector<Vertex> vertices,
+			std::string name, std::vector<Texture> textures);
+		~Mesh() = default;
 
-		Mesh(const Mesh&);
-		Mesh(const std::vector<uint32_t>& indices, const std::vector<Vertex>& vertices,
-		std::string name, std::vector<Texture> &textures);
-		Mesh(std::vector<uint32_t>& indices, std::vector<Vertex>& vertices, 
-		std::string name, std::vector<Texture>& textures);
-
+		Mesh(const Mesh&) = delete;
 		Mesh& operator=(const Mesh&) = delete;
 		Mesh(Mesh&& other) noexcept;
-		const std::shared_ptr<LxhBuffer> getVertexBuffer() { return vertexBuffer; }
-		const std::shared_ptr<LxhBuffer> getIndexBuffer() { return indexBuffer; }
+
+		const std::shared_ptr<LxhBuffer>& getVertexBuffer() const { return vertexBuffer; }
+		const std::shared_ptr<LxhBuffer>& getIndexBuffer() const { return indexBuffer; }
 		void setName(const std::string& name) { m_name = name; }
 		const std::string& getName() const { return m_name; }
 
-		void bind(VkCommandBuffer commandBuffer);
-		void draw(VkCommandBuffer commandBuffer);
+		void bind(VkCommandBuffer commandBuffer) const;
+		void draw(VkCommandBuffer commandBuffer) const;
 
-		void createVertexBuffers(LxhDevice& device, const std::vector<Vertex>& vertices);
-
-		void createIndexBuffers(LxhDevice& device, const std::vector<uint32_t>& indices);
+		void createVertexBuffers(LxhDevice& device);
+		void createIndexBuffers(LxhDevice& device);
 
 		std::vector<Vertex> vertices{};
 		std::vector<uint32_t> indices{};
-		
+
 		std::vector<Texture> m_textures;
+		std::shared_ptr<LxhMaterial> material;  // assigned by App::createMaterials()
+
 	private:
-	
 		std::shared_ptr<LxhBuffer> vertexBuffer;
-		uint32_t vertexCount;
+		uint32_t vertexCount = 0;
 
 		bool hasIndexBuffer = false;
 		std::shared_ptr<LxhBuffer> indexBuffer;
-		uint32_t indexCount;
+		uint32_t indexCount = 0;
 
 		std::string m_name;
 	};

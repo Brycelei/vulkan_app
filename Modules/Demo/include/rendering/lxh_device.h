@@ -5,8 +5,6 @@
 
 namespace lxh
 {
-	extern lxh::LxhWindow* g_window_ptr; // 你需要在工程中定义并初始化它
-
 	struct SwapChainSupportDeatails
 	{
 		VkSurfaceCapabilitiesKHR capabilities;
@@ -40,11 +38,6 @@ namespace lxh
         static LxhDevice instance(window);
         return instance;
     }
-	static LxhDevice& getInstance()
-	{
-		// 注意：此重载要求先用带参数的 getInstance 初始化一次
-		return getInstance(*g_window_ptr);
-	}
 		
 		VkCommandPool getCommandPool() const { return commandPool; }
 		VkDevice getDevice() const { return device_; }

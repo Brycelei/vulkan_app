@@ -64,9 +64,7 @@ namespace lxh
 		}
 		else
 		{
-			char * memOffset = (char *)mapped;
-			memOffset += offset;
-			memcpy(mapped, data, size);
+			memcpy(static_cast<char*>(mapped) + offset, data, size);
 		}
 	}
 

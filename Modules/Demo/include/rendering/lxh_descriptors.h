@@ -91,13 +91,14 @@ namespace lxh {
 	public:
 		LxhDescriptorWriter(LxhDescriptorSetLayout& setLayout, LxhDescriptorPool& pool);
 
-		LxhDescriptorWriter& writeBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
-		LxhDescriptorWriter& writeImage(uint32_t binding, VkDescriptorImageInfo* imageInfo);
+		LxhDescriptorWriter& writeBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo);
+		LxhDescriptorWriter& writeImage(uint32_t binding, const VkDescriptorImageInfo* imageInfo);
 
 		bool build(VkDescriptorSet& set);
 		LxhDescriptorWriter& builds(std::vector<VkDescriptorSet>& sets);
 
 		void overwrite(VkDescriptorSet& set);
+		void clear();
 
 	private:
 		LxhDescriptorSetLayout& setLayout;
